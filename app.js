@@ -64,7 +64,7 @@ const TEST_CONTINUATIONS = [
 ];
 
 function installTestConditionMatrix(){
-  if(!PREVIEW_MODE || window.location.hostname === "555bighamsome.github.io") return;
+  if(!PREVIEW_MODE || ["555bighamsome.github.io", "lzykun.github.io"].includes(window.location.hostname)) return;
   const currentSchedule = RAW_LIBRARY.schedule || "all-local";
   const scheduleLabel = TEST_JUMP_TIMINGS.find(row => row.id === currentSchedule)?.label || currentSchedule;
   const continuationLabel = TEST_CONTINUATIONS.find(row => row.id === CONTINUATION_CONDITION)?.label || CONTINUATION_CONDITION;

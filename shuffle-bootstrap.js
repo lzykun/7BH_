@@ -136,7 +136,7 @@
   };
 
   function mountTestConditionSwitcher(){
-    if(location.hostname === '555bighamsome.github.io') return;
+    if(['555bighamsome.github.io', 'lzykun.github.io'].includes(location.hostname)) return;
     if(!(preview || location.protocol === 'file:') || document.querySelector('.test-condition-switcher')) return;
     const switcher = document.createElement('aside');
     switcher.className = 'test-condition-switcher';

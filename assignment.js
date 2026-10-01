@@ -3,6 +3,8 @@
 "use strict";
 
 const params = new URLSearchParams(window.location.search);
+const pagesPreviewHost = ["555bighamsome.github.io", "lzykun.github.io"]
+  .includes(window.location.hostname);
 const formalConditions = ["all-local", "jump-2", "jump-5"];
 const armLabels = {
   "all-local":"all-local",
@@ -77,6 +79,9 @@ function showError(message){
 }
 
 async function assign(){
+  // On GitHub Pages, pages-preview.js reloads this page with preview=1;
+  // never contact the assignment server from there.
+  if(pagesPreviewHost && params.get("preview") !== "1") return;
   if(!params.get("session")) params.set("session", makeSessionId());
   const preview = params.get("preview") === "1";
   const carried = params.get("assigned_condition");

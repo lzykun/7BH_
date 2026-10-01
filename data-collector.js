@@ -6,6 +6,9 @@ const SCHEMA_VERSION = "1.0";
 const WINDOW_NAME_PREFIX = "__ROBOT_STUDY_DATA__";
 const MAX_KEEPALIVE_BYTES = 60000;
 const params = new URLSearchParams(window.location.search);
+// GitHub Pages previews never upload events, whatever the URL says.
+const PAGES_PREVIEW_HOST = ["555bighamsome.github.io", "lzykun.github.io"]
+  .includes(window.location.hostname);
 const CONTEXT_KEYS = [
   "session", "assigned_condition", "assignment_arm", "assignment_source",
   "schedule", "mode", "condition", "continuation", "order", "trial", "v",
@@ -56,6 +59,7 @@ if(storedContext && (!incomingSession || incomingSession === storedSession)){
 
 const sessionId = cleanId(params.get("session")) || uuid();
 params.set("session", sessionId);
+if(PAGES_PREVIEW_HOST) params.delete("data_endpoint");
 
 function persistNavigationContext(){
   const context = {};
@@ -94,8 +98,8 @@ persistNavigationContext();
 
 const storageKey = "robot-study:" + sessionId;
 const participantCode = sessionId;
-const explicitEndpoint = params.get("data_endpoint");
-const endpoint = explicitEndpoint || (
+const explicitEndpoint = PAGES_PREVIEW_HOST ? null : params.get("data_endpoint");
+const endpoint = PAGES_PREVIEW_HOST ? null : explicitEndpoint || (
   params.get("preview") === "1" ? null : (
     document.querySelector('meta[name="study-data-endpoint"]')?.content ||
     (/^https?:$/.test(window.location.protocol) ? "record_result.php" : null)
