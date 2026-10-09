@@ -10,12 +10,16 @@ let viewportResizeTimer = null;
 let curIndex = window.SHUFFLE_PREVIEW.startIndex;
 let scn = TASKS[curIndex];
 let rules = [];
+let activeRuleFamily = "role";
+let familyRuleDrafts = {move_dir:[], role:[]};
 const sceneRuleDrafts = new Map();
 let library = [];
 let robotEls = {};
 let machineEls = {};
 let timer = null;
-let autoAdvanceTimer = null;
+let taskSuccessTimer = null;
+let successConfettiLayer = null;
+let successConfettiTimer = null;
 let completionDialogOpen = false;
 let runs = [];
 let lastResult = null;
@@ -28,12 +32,17 @@ let ruleEvents = [];
 let lastRuleEventIndex = 0;
 let nextRuleId = 1;
 let rulebookRevision = 0;
+let taskReady = false;
+let trialStartRule = null;
+let activeRunId = null;
 const sceneGuidesSeen = new Set();
 
 const $ = id => document.getElementById(id);
 const URL_PARAMS = window.StudyData?.params || new URLSearchParams(window.location.search);
 const PARTICIPANT_CODE = window.StudyData?.participantCode || null;
 const CONTINUATION_CONDITION = "local";
+const RUN_COMPLETION_PROTOCOL = "full-map-single-run-v1";
+const RULE_EDITOR_PROTOCOL = window.STUDY_CONFIG.rule_editor_protocol;
 if(URL_PARAMS.get("continuation") !== CONTINUATION_CONDITION){
   URL_PARAMS.set("continuation", CONTINUATION_CONDITION);
   window.StudyData?.syncParams?.(URL_PARAMS);
@@ -52,7 +61,6 @@ const ALWAYS_UNLOCK = URL_PARAMS.get("access") === "always";
 const FREE_ORDER = ALWAYS_UNLOCK || ORDER_MODE === "free";
 const EDITOR_CONDITION = RAW_LIBRARY.condition === "fresh" ? "fresh" : "carry";
 let activeTaskBranch = "movement";
-const localCompletedByTask = new Map();
 
 const TEST_JUMP_TIMINGS = [
   {id:"all-local", label:"All-local"},
@@ -63,83 +71,7 @@ const TEST_CONTINUATIONS = [
   {id:"local", label:"Local continuation"},
 ];
 
-function installTestConditionMatrix(){
-  if(!PREVIEW_MODE || window.location.hostname === "555bighamsome.github.io") return;
-  const currentSchedule = RAW_LIBRARY.schedule || "all-local";
-  const scheduleLabel = TEST_JUMP_TIMINGS.find(row => row.id === currentSchedule)?.label || currentSchedule;
-  const continuationLabel = TEST_CONTINUATIONS.find(row => row.id === CONTINUATION_CONDITION)?.label || CONTINUATION_CONDITION;
-
-  const launcher = document.createElement("button");
-  launcher.type = "button";
-  launcher.className = "test-condition-launcher";
-  launcher.textContent = `Test: ${scheduleLabel} / ${continuationLabel}`;
-  launcher.setAttribute("aria-haspopup", "dialog");
-
-  const backdrop = document.createElement("div");
-  backdrop.className = "test-condition-backdrop";
-  backdrop.hidden = true;
-  backdrop.innerHTML = `
-    <section class="test-condition-panel" role="dialog" aria-modal="true" aria-labelledby="test-condition-title">
-      <header class="test-condition-header">
-        <div>
-          <strong id="test-condition-title">Test condition</strong>
-          <span>All tasks use Local continuation</span>
-        </div>
-        <button class="test-condition-close" type="button" aria-label="Close">&times;</button>
-      </header>
-      <div class="test-condition-matrix" role="group" aria-label="Experimental condition matrix">
-        <span class="test-condition-corner" aria-hidden="true"></span>
-        ${TEST_CONTINUATIONS.map(row => `<strong class="test-condition-column">${row.label}</strong>`).join("")}
-        ${TEST_JUMP_TIMINGS.map(schedule => `
-          <strong class="test-condition-row">${schedule.label}</strong>
-          ${TEST_CONTINUATIONS.map(continuation => {
-            const isCurrent = schedule.id === currentSchedule && continuation.id === CONTINUATION_CONDITION;
-            return `<button type="button" class="test-condition-cell${isCurrent ? " is-current" : ""}"
-              data-test-schedule="${schedule.id}" data-test-continuation="${continuation.id}"
-              ${isCurrent ? 'aria-current="true"' : ""}>${isCurrent ? "Current" : "Open"}</button>`;
-          }).join("")}
-        `).join("")}
-      </div>
-    </section>
-  `;
-
-  const close = () => {
-    backdrop.hidden = true;
-    launcher.setAttribute("aria-expanded", "false");
-    launcher.focus();
-  };
-  const open = () => {
-    backdrop.hidden = false;
-    launcher.setAttribute("aria-expanded", "true");
-    const focusTarget = backdrop.querySelector(".test-condition-cell.is-current") ||
-      backdrop.querySelector(".test-condition-cell");
-    focusTarget?.focus();
-  };
-  launcher.setAttribute("aria-expanded", "false");
-  launcher.onclick = open;
-  backdrop.querySelector(".test-condition-close").onclick = close;
-  backdrop.onclick = event => {
-    if(event.target === backdrop) close();
-  };
-  backdrop.querySelectorAll(".test-condition-cell").forEach(button => {
-    button.onclick = () => {
-      const nextParams = new URLSearchParams(window.location.search);
-      nextParams.set("condition", "carry");
-      nextParams.set("schedule", button.dataset.testSchedule);
-      nextParams.set("continuation", button.dataset.testContinuation);
-      nextParams.set("skipTutorial", "1");
-      nextParams.set("order", "free");
-      nextParams.set("access", "always");
-      nextParams.set("preview", "1");
-      nextParams.delete("stage");
-      window.location.search = nextParams.toString();
-    };
-  });
-  document.addEventListener("keydown", event => {
-    if(event.key === "Escape" && !backdrop.hidden) close();
-  });
-  document.body.append(launcher, backdrop);
-}
+function installTestConditionMatrix(){}
 
 // Shared-pool test controls are installed after task initialization.
 
@@ -214,6 +146,7 @@ const MUTATING_RULE_EVENTS = new Set([
   "rule_family_changed",
   "rule_value_added",
   "rule_value_removed",
+  "practice_rule_carried_over",
 ]);
 
 function recordRuleEvent(type, detail={}){
@@ -231,6 +164,9 @@ function recordRuleEvent(type, detail={}){
     schedule:RAW_LIBRARY.schedule || null,
     editor_condition:EDITOR_CONDITION,
     continuation_condition:CONTINUATION_CONDITION,
+    completion_protocol:RUN_COMPLETION_PROTOCOL,
+    rule_editor_protocol:RULE_EDITOR_PROTOCOL,
+    active_rule_family:activeRuleFamily,
     curriculum_branch:activeTaskBranch,
     shift_id:scn?.id || null,
     task_item_id:scn?.itemId || null,
@@ -250,6 +186,96 @@ function recordRuleEvent(type, detail={}){
     rulebook_revision:rulebookRevision,
   });
   window.StudyData?.record(type, event);
+  persistTaskProgress();
+}
+
+function ruleMetricsState(){
+  const state = simpleRuleState();
+  return {movement_mask:state.movementMask, role_mask:state.roleMask,
+    representation:state.representation, selected_value_count:state.valueCount,
+    active_rule_family:activeRuleFamily};
+}
+
+function persistTaskProgress(){
+  if(!taskReady) return;
+  window.StudyData?.saveCheckpoint("task", {
+    version:window.SHARED_POOL.version, schedule:RAW_LIBRARY.schedule, branch:activeTaskBranch,
+    completion_protocol:RUN_COMPLETION_PROTOCOL,
+    rule_editor_protocol:RULE_EDITOR_PROTOCOL,
+    active_rule_family:activeRuleFamily,
+    family_rule_drafts:currentFamilyDrafts(),
+    material_order:TASKS.map(task => task.itemId), current_index:curIndex,
+    rules, library, next_rule_id:nextRuleId, revision:rulebookRevision,
+    shift_states:shiftStates,
+    experiment_started_at:experimentStartedAt, trial_started_at:trialStartedAt,
+    last_attempt_at:lastAttemptAt, trial_start_rule:trialStartRule,
+    display_frame_index:frameIndex, active_run_id:activeRunId, last_rule_event_index:lastRuleEventIndex,
+  });
+}
+
+function restoreTaskProgress(){
+  const saved = window.StudyData?.checkpoint("task");
+  if(!saved || saved.version !== window.SHARED_POOL.version || saved.schedule !== RAW_LIBRARY.schedule ||
+    saved.completion_protocol !== RUN_COMPLETION_PROTOCOL ||
+    saved.rule_editor_protocol !== RULE_EDITOR_PROTOCOL ||
+    !isPureFamilyRulebook(saved.rules, saved.active_rule_family) ||
+    !["move_dir", "role"].every(family => isPureFamilyRulebook(saved.family_rule_drafts?.[family], family)) ||
+    saved.branch !== activeTaskBranch || JSON.stringify(saved.material_order) !== JSON.stringify(TASKS.map(task => task.itemId)) ||
+    !Number.isInteger(saved.current_index) || !TASKS[saved.current_index]) return false;
+  curIndex = saved.current_index;
+  scn = TASKS[curIndex];
+  rules = saved.rules || [];
+  activeRuleFamily = saved.active_rule_family;
+  familyRuleDrafts = structuredClone(saved.family_rule_drafts);
+  library = saved.library || [];
+  nextRuleId = saved.next_rule_id;
+  rulebookRevision = saved.revision;
+  for(const task of TASKS) Object.assign(shiftStates[task.id], saved.shift_states?.[task.id] || {});
+  experimentStartedAt = saved.experiment_started_at;
+  trialStartedAt = saved.trial_started_at;
+  lastAttemptAt = saved.last_attempt_at;
+  trialStartRule = saved.trial_start_rule;
+  const events = window.StudyData.snapshot().events.filter(event =>
+    event.completion_protocol === RUN_COMPLETION_PROTOCOL && event.rule_editor_protocol === RULE_EDITOR_PROTOCOL);
+  runs = events.filter(event => event.stage === "task" && event.event_type === "run_completed").map(event => event.detail);
+  ruleEvents = events.filter(event => event.stage === "task" && event.detail?.type === event.event_type).map(event => event.detail);
+  lastRuleEventIndex = Math.min(saved.last_rule_event_index || 0, ruleEvents.length);
+  const last = runs.at(-1);
+  if(last?.shift_id === scn.id){
+    if(last.rulebook_revision === rulebookRevision){
+      lastResult = {...last, completedAgentIds:last.completed_agent_ids_after,
+        newlyCompletedIds:last.newly_completed_agent_ids, failedEncounterIds:last.failed_encounter_ids};
+    }
+    lastFrames = last.frames || [];
+    frameIndex = Math.min(saved.display_frame_index || 0, Math.max(0,lastFrames.length-1));
+  }
+  window.StudyData?.setContext({trial_index:curIndex+1, task_id:scn.id, task_item_id:scn.itemId,
+    attempt_index:shiftStates[scn.id].attempts, rulebook_revision:rulebookRevision});
+  if(saved.active_run_id) window.StudyData.record("run_animation_interrupted", {
+    run_id:saved.active_run_id, frame_index:saved.display_frame_index, reason:"page-reload",
+  });
+  return true;
+}
+
+function recordTaskEntry(source){
+  const material = RAW_LIBRARY.tasks[curIndex];
+  window.StudyData?.record("task_entered", {source, inherited_rule:trialStartRule, current_rule:ruleMetricsState(),
+    active_robot_count:scn.agents.filter(agent => agent.active).length,
+    completion_protocol:RUN_COMPLETION_PROTOCOL, completed_agent_ids:[]});
+  if(!window.StudyData?.snapshot().events.some(event => event.event_type === "task_material_snapshot" && event.task_item_id === scn.itemId)){
+    window.StudyData?.record("task_material_snapshot", {world:material.world, agents:material.agents,
+      encounters:material.encounters || material.encounter_modules || []});
+  }
+}
+
+function stopTaskAnimation(reason){
+  closeTaskSuccessDialog();
+  if(!timer) return;
+  clearInterval(timer);
+  timer = null;
+  window.StudyData?.record("run_animation_interrupted", {run_id:activeRunId,
+    frame_index:frameIndex, frame_total:lastFrames.length-1, reason});
+  activeRunId = null;
 }
 
 function icon(name, extraClass=""){
@@ -707,23 +733,27 @@ function showScenePicker(){
 
 function switchTask(index){
   if(!taskUnlocked(TASKS[index])) return;
-  if(autoAdvanceTimer){ clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
+  window.StudyData?.finishInspections("task-navigation");
+  stopTaskAnimation("task-navigation");
   const sourceIndex = curIndex;
   const sourceTask = scn;
   if(EDITOR_CONDITION === "fresh"){
-    sceneRuleDrafts.set(scn.id, rules);
+    sceneRuleDrafts.set(scn.id, {family:activeRuleFamily, drafts:currentFamilyDrafts()});
   }
   curIndex = index;
   scn = TASKS[curIndex];
   const carriesActiveRulebook = EDITOR_CONDITION === "carry";
   if(!carriesActiveRulebook){
     const existingDraft = sceneRuleDrafts.get(scn.id);
-    rules = existingDraft || loadStarterRules(scn);
+    activeRuleFamily = existingDraft?.family || "move_dir";
+    familyRuleDrafts = existingDraft?.drafts || {move_dir:loadStarterRules(scn), role:[]};
+    rules = structuredClone(familyRuleDrafts[activeRuleFamily]);
   }
   lastResult = null;
   lastFrames = [];
   frameIndex = 0;
   trialStartedAt = Date.now();
+  trialStartRule = ruleMetricsState();
   window.StudyData?.setContext({
     trial_index:curIndex + 1,
     task_id:scn.id,
@@ -731,7 +761,6 @@ function switchTask(index){
     attempt_index:shiftStates[scn.id].attempts,
     rulebook_revision:rulebookRevision,
   });
-  if(timer){ clearInterval(timer); timer = null; }
   recordRuleEvent("shift_selected", {
     selected_shift_id:scn.id,
     selected_shift_index:index,
@@ -744,12 +773,17 @@ function switchTask(index){
       source_was_successful:shiftStates[sourceTask.id].lastOk === true,
       carried_rule_ids:rules.map(rule => rule.id),
       carried_rule_json:ruleJson(),
+      active_rule_family:activeRuleFamily,
+      family_draft_state:familyDraftMetrics(),
     });
   }
   renderAll();
+  recordTaskEntry("task-navigation");
+  persistTaskProgress();
   if(carriesActiveRulebook){
     setStatus(`Your rule from ${sourceTask.label} is still selected. Press Run when you are ready.`, "");
   }
+  showFirstRunGuidance();
   if(shouldAutoShowGuide(scn)){
     setTimeout(() => showSceneGuide(), 0);
   }
@@ -759,9 +793,10 @@ function buildTabs(){
   const tabs = $("tabs");
   tabs.innerHTML = "";
   TASKS.forEach((task, index) => {
-    const button = document.createElement("button");
     const state = shiftStates[task.id];
     const locked = !taskUnlocked(task);
+    if(locked) return;
+    const button = document.createElement("button");
     const stateClass = locked
       ? "locked"
       : !state.visited || state.lastOk === null ? "unseen" : state.lastOk ? "solved" : "failed";
@@ -783,21 +818,20 @@ function buildTabs(){
   if(sceneLabel) sceneLabel.textContent = scn.label;
   const position = $("scene-position");
   if(position){
-    position.textContent = `${scn.label} / ${TASKS.length}`;
+    position.textContent = scn.label;
   }
   renderSceneGuideButton();
   const visited = Object.values(shiftStates).filter(state => state.visited).length;
   const currentSolved = Object.values(shiftStates).filter(state =>
     state.lastOk
   ).length;
-  const available = unlockedTasks().length;
   const caseSummary = $("case-summary");
   if(caseSummary){
-    caseSummary.textContent = `${scn.label} · ${currentSolved}/${TASKS.length} solved`;
+    caseSummary.textContent = `${scn.label} · ${currentSolved} solved`;
   }
   const courseProgress = $("course-progress");
   if(courseProgress){
-    courseProgress.textContent = `${visited} / ${TASKS.length} checked`;
+    courseProgress.textContent = `${visited} checked`;
   }
 }
 
@@ -982,19 +1016,14 @@ function buildBoard(){
 }
 
 function initialFrame(){
-  const completed = CONTINUATION_CONDITION === "local"
-    ? new Set(localCompletedByTask.get(scn.id) || [])
-    : new Set();
   const pos = Object.fromEntries(scn.agents.map(agent => [
-    agent.id,
-    completed.has(String(agent.id)) ? goalCell(scn, agent).slice() : agent.pos,
+    agent.id, agent.pos.slice(),
   ]));
   const agents = {};
   scn.agents.forEach(agent => {
-    const done = completed.has(String(agent.id));
     agents[agent.id] = {
-      state:!agent.active ? "off-duty" : done ? "done" : "pending",
-      done:!agent.active || done,
+      state:!agent.active ? "off-duty" : "pending",
+      done:!agent.active,
       offDuty:!agent.active,
       waiting:false,
       failed:false,
@@ -1106,10 +1135,12 @@ function renderFrame(frame){
     if(!occupiedMachines.has(machineId)) machineEls[machineId]?.classList.add("available");
   });
   document.querySelectorAll(".cell.flash").forEach(el => el.classList.remove("flash"));
-  if(frame.event && frame.event.cell && frame.event.type !== "machine-complete"){
-    const cell = document.querySelector('[data-cell="' + K(frame.event.cell[0], frame.event.cell[1]) + '"]');
+  const failureEvents = frame.failureEvents || frame.simultaneousEvents || [frame.event];
+  failureEvents.forEach(event => {
+    if(!event?.cell || event.type === "machine-complete") return;
+    const cell = document.querySelector('[data-cell="' + K(event.cell[0], event.cell[1]) + '"]');
     if(cell) cell.classList.add("flash");
-  }
+  });
   renderAgentProgress(frame);
   updateFrameButtons();
 }
@@ -1524,6 +1555,51 @@ function simpleFields(){
     .filter(Boolean);
 }
 
+function isPureFamilyRulebook(sourceRules, family){
+  const field = simpleField(family);
+  return !!field && Array.isArray(sourceRules) && sourceRules.every(rule =>
+    rule?.action === "MOVE" && Array.isArray(rule.conds) && rule.conds.length === 1 &&
+    rule.conds[0].p === family && !rule.conds[0].negated &&
+    field.values.some(value => String(value.id) === String(rule.conds[0].v))
+  );
+}
+
+function currentFamilyDrafts(){
+  return structuredClone({...familyRuleDrafts, [activeRuleFamily]:rules});
+}
+
+function familyDraftMetrics(){
+  return Object.fromEntries(Object.entries(currentFamilyDrafts()).map(([family, draft]) => {
+    const state = simpleRuleState(draft);
+    return [family, {movement_mask:state.movementMask, role_mask:state.roleMask}];
+  }));
+}
+
+function switchRuleFamily(family, trigger="click"){
+  if(!["move_dir", "role"].includes(family) || family === activeRuleFamily) return;
+  window.StudyData?.finishInspections("rule-family-switch");
+  const before = ruleMetricsState();
+  const from = activeRuleFamily;
+  familyRuleDrafts = currentFamilyDrafts();
+  activeRuleFamily = family;
+  rules = window.STUDY_CONFIG.retain_family_drafts
+    ? structuredClone(familyRuleDrafts[family]) : [];
+  if(!window.STUDY_CONFIG.retain_family_drafts) familyRuleDrafts = {move_dir:[], role:[]};
+  stopTaskAnimation("rule-family-switch");
+  recordRuleEvent("rule_family_changed", {
+    from_family:from, to_family:family, trigger, rule_state_before:before,
+    rule_state_after:ruleMetricsState(), family_draft_state:familyDraftMetrics(),
+    restored_draft:rules.length > 0,
+  });
+  resetRunAfterRuleEdit();
+  renderRules();
+  window.StudyData?.record("rule_representation_changed", {
+    before:before.representation, after:ruleMetricsState().representation,
+    source:"tab-switch", rule_state:ruleMetricsState(),
+  });
+  document.getElementById(`rule-family-tab-${family}`)?.focus();
+}
+
 function simpleSelectedValues(sourceRules=rules, family=null){
   if(!family){
     return simpleFields().flatMap(field => simpleSelectedValues(sourceRules, field.predicate));
@@ -1605,26 +1681,66 @@ function simpleCondition(field, value){
   };
 }
 
+function carryPracticeRuleIntoFirstTask(){
+  if(!SIMPLE_FAMILY_RULE_LANGUAGE || curIndex !== 0 ||
+    window.SHUFFLE_PREVIEW.inspect || rules.length ||
+    window.StudyData?.checkpoint("task")) return;
+  const events = window.StudyData?.snapshot().events || [];
+  if(events.some(event => event.stage === "task" && (
+    event.event_type === "task_entered" || event.event_type === "run_started" ||
+    event.event_type === "run_completed" || MUTATING_RULE_EVENTS.has(event.event_type)
+  ))) return;
+
+  const protocol = "type-only-d-mirror-v1";
+  const completedIndex = events.findLastIndex(event => event.event_type === "tutorial_completed");
+  const completed = events[completedIndex];
+  if(completed?.detail?.practice_protocol !== protocol) return;
+  // Use the last tested practice rule, not an assumed default or an earlier success.
+  const practice = events.slice(0, completedIndex).findLast(event =>
+    event.event_type === "tutorial_run" && event.detail?.tutorial_page === "simple_practice"
+  );
+  const detail = practice?.detail;
+  const typeValues = detail?.selected_values?.role;
+  if(!detail?.ok || !detail.practice_requirement_met || detail.practice_protocol !== protocol ||
+    detail.scene_id !== "tutorial_type_d_wait_practice" ||
+    detail.simple_representation !== "pure_type" ||
+    !Array.isArray(typeValues) || typeValues.length !== 1 || typeValues[0] !== "loader" ||
+    !Array.isArray(detail.selected_values.move_dir) || detail.selected_values.move_dir.length) return;
+  const field = simpleField("role");
+  const value = field?.values.find(option => option.id === typeValues[0]);
+  if(!value) return;
+  activeRuleFamily = "role";
+  rules = [{id:nextRuleId++, action:"MOVE", conds:[simpleCondition(field, value)], editor:null}];
+  recordRuleEvent("practice_rule_carried_over", {
+    automatic:true,
+    source_event_id:practice.event_id,
+    source_completion_event_id:completed.event_id,
+    source_scene_id:detail.scene_id,
+    practice_protocol:protocol,
+    movement_values:[],
+    role_values:typeValues.slice(),
+    rule_state:ruleMetricsState(),
+  });
+}
+
 function resetRunAfterRuleEdit(){
-  if(timer){
-    clearInterval(timer);
-    timer = null;
-  }
-  if(autoAdvanceTimer){ clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
+  stopTaskAnimation("rule-edit");
   lastResult = null;
-  lastFrames = [];
-  frameIndex = 0;
-  buildBoard();
+  if(!lastFrames.length) buildBoard();
   updateContinueButton();
   setStatus(
     simpleSelectedValues().length
-      ? "Rule changed. Run it to test."
+      ? "Rule changed. Press Run to test it with all robots back at the start."
       : "No values selected. Run to see what happens without a waiting rule.",
     "",
   );
+  showFirstRunGuidance();
+  persistTaskProgress();
 }
 
 function toggleSimpleValue(field, value){
+  if(field.predicate !== activeRuleFamily) return;
+  const representationBefore = simpleRuleState().representation;
   const index = rules.findIndex(rule =>
     rule.conds.length === 1 &&
     rule.conds[0].p === field.predicate &&
@@ -1653,9 +1769,17 @@ function toggleSimpleValue(field, value){
   }
   resetRunAfterRuleEdit();
   renderRules();
+  const after = ruleMetricsState();
+  if(after.representation !== representationBefore) window.StudyData?.record("rule_representation_changed", {
+    before:representationBefore, after:after.representation, rule_state:after,
+  });
+  if(field.predicate === "role" && after.role_mask && !window.StudyData?.snapshot().events.some(event => event.event_type === "first_type_value_selected")){
+    window.StudyData?.record("first_type_value_selected", {rule_state:after});
+  }
 }
 
 function renderSimpleRuleEditor(){
+  window.StudyData?.finishInspections();
   const box = $("rules");
   const actions = document.querySelector(".rulebook-actions");
   const libraryPanel = document.querySelector(".library-panel");
@@ -1665,6 +1789,11 @@ function renderSimpleRuleEditor(){
 
   const editor = document.createElement("div");
   editor.className = "simple-rule-editor";
+  const state = simpleRuleState();
+  const current = document.createElement("section");
+  current.className = "simple-current-rule";
+  current.innerHTML = `<span>CURRENT RULE</span><strong>${simpleRuleSentence()}</strong>`;
+  editor.appendChild(current);
   const context = document.createElement("div");
   context.className = "simple-rule-context";
   context.textContent = "WHEN TWO ROBOTS MEET";
@@ -1675,15 +1804,46 @@ function renderSimpleRuleEditor(){
   intro.innerHTML = '<strong>Choose who waits</strong><p>Select one or more values. A robot waits if it matches any selected value.</p>';
   editor.appendChild(intro);
 
-  const fields = simpleFields();
+  const fields = [simpleField("role"), simpleField("move_dir")].filter(Boolean);
+  const tabs = document.createElement("div");
+  tabs.className = "rule-family-tabs";
+  tabs.setAttribute("role", "tablist");
+  tabs.setAttribute("aria-label", "Rule feature");
+  fields.forEach((field, index) => {
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.id = `rule-family-tab-${field.predicate}`;
+    tab.className = "rule-family-tab";
+    tab.dataset.family = field.predicate;
+    tab.textContent = field.predicate === "role" ? "Type" : "Movement";
+    tab.setAttribute("role", "tab");
+    tab.setAttribute("aria-selected", String(field.predicate === activeRuleFamily));
+    tab.setAttribute("aria-controls", `rule-family-panel-${field.predicate}`);
+    tab.tabIndex = field.predicate === activeRuleFamily ? 0 : -1;
+    tab.onclick = () => switchRuleFamily(field.predicate);
+    tab.onkeydown = event => {
+      const next = event.key === "ArrowRight" ? (index+1)%fields.length
+        : event.key === "ArrowLeft" ? (index+fields.length-1)%fields.length
+        : event.key === "Home" ? 0 : event.key === "End" ? fields.length-1 : null;
+      if(next === null) return;
+      event.preventDefault();
+      switchRuleFamily(fields[next].predicate, "keyboard");
+    };
+    tabs.appendChild(tab);
+  });
+  editor.appendChild(tabs);
   const familySections = document.createElement("div");
-  familySections.className = "simple-family-sections";
+  familySections.className = "simple-family-sections pure-family-panels";
   fields.forEach(field => {
     const selectedValues = new Set(
       simpleSelectedValues(rules, field.predicate).map(value => String(value.id))
     );
     const familySection = document.createElement("section");
     familySection.className = `simple-family-section family-${field.predicate}`;
+    familySection.id = `rule-family-panel-${field.predicate}`;
+    familySection.hidden = field.predicate !== activeRuleFamily;
+    familySection.setAttribute("role", "tabpanel");
+    familySection.setAttribute("aria-labelledby", `rule-family-tab-${field.predicate}`);
     familySection.dataset.family = field.predicate;
     const familyHeading = document.createElement("div");
     familyHeading.className = "simple-family-heading";
@@ -1705,7 +1865,7 @@ function renderSimpleRuleEditor(){
       if(field.predicate === "role"){
         button.innerHTML = `<span class="simple-role-swatch simple-type-swatch" style="--role-color:${SIMPLE_ROBOT_COLOR}">${icon("robot", "simple-role-icon")}${robotTypeMark(value.id, "simple-type-letter")}</span><span>${value.label}</span>`;
       }else{
-        button.innerHTML = `<span class="simple-arrow-value">${value.symbol || MOVEMENT_ARROWS[value.id] || value.id}</span><span>${value.label}</span>`;
+        button.innerHTML = `<span class="simple-role-swatch simple-type-swatch" style="--role-color:${SIMPLE_ROBOT_COLOR}">${icon("robot", "simple-role-icon")}<span class="robot-type-letter simple-type-letter simple-movement-mark">${value.symbol || MOVEMENT_ARROWS[value.id] || value.id}</span></span><span>${value.label}</span>`;
       }
       button.onclick = () => toggleSimpleValue(field, value);
       valueGrid.appendChild(button);
@@ -1715,13 +1875,6 @@ function renderSimpleRuleEditor(){
   });
   editor.appendChild(familySections);
 
-  const state = simpleRuleState();
-  if(state.valueCount){
-    const current = document.createElement("section");
-    current.className = "simple-current-rule";
-    current.innerHTML = `<span>CURRENT RULE</span><strong>${simpleRuleSentence()}</strong>`;
-    editor.appendChild(current);
-  }
   box.appendChild(editor);
 
   const count = $("rule-count");
@@ -1995,6 +2148,27 @@ function setStatus(text, kind){
   const status = $("status");
   status.textContent = text;
   status.className = "status" + (kind ? " " + kind : "");
+  $("run")?.removeAttribute("aria-describedby");
+  if(kind !== "run-guidance-only") $("run")?.classList.remove("is-guided");
+}
+
+function showFirstRunGuidance(){
+  const visible = curIndex === 0 && shiftStates[scn.id].attempts === 0;
+  $("run")?.classList.toggle("is-guided", visible);
+  if(!visible){
+    if($("status").classList.contains("run-guidance-only")) setStatus("", "");
+    return;
+  }
+  setStatus("", "run-guidance-only");
+  $("status").innerHTML = `<span class="run-guide-character" aria-hidden="true">${icon("robot", "run-guide-robot")}<span class="run-guide-arm"></span></span><span class="run-guide-bubble" id="first-run-guide-message">Try <strong>Run</strong> first.</span>`;
+  $("run")?.setAttribute("aria-describedby", "first-run-guide-message");
+  if(!window.StudyData?.snapshot().events.some(event =>
+    event.event_type === "task_run_guidance_shown" && event.detail?.guidance_id === "t1-robot-run-v1")){
+    window.StudyData?.record("task_run_guidance_shown", {
+      guidance_id:"t1-robot-run-v1", animation:"robot-pointing-and-run-pulse",
+      message:"Try Run first.", placement:"above-run-button",
+    });
+  }
 }
 
 function feedbackCellType(cell){
@@ -2085,6 +2259,17 @@ function ruleStopExplanation(matches, ids, frame){
 
 function buildRunFeedback(result){
   const frame = result.frames?.[result.frames.length - 1] || null;
+  if(SIMPLE_FAMILY_RULE_LANGUAGE){
+    const active = scn.agents.filter(agent => agent.active);
+    const reached = active.filter(agent => frame?.agents?.[agent.id]?.done).length;
+    const waiting = studyBothWaitingFeedback(scn, result, result.testedNorms || [], agent => agentTargetNumber(agent));
+    if(waiting) return {title:`${reached}/${active.length} robots arrived`, observation:waiting, kind:"bad"};
+    return {
+      title:result.ok ? "Success" : "Not complete",
+      observation:`${reached}/${active.length} robots reached their charging bays in this Run.`,
+      kind:result.ok ? "ok" : "bad",
+    };
+  }
   const event = frame?.event || null;
   const step = frame?.tick ?? Math.max(0, (result.frames?.length || 1) - 1);
   const ids = event?.agents || (event?.agent !== undefined ? [event.agent] : []);
@@ -2220,7 +2405,7 @@ function buildRunFeedback(result){
   };
 }
 
-function setRunFeedback(result){
+function setRunFeedback(result, showSuccess=true){
   const status = $("status");
   const feedback = buildRunFeedback(result);
   status.className = `status run-feedback ${feedback.kind}`;
@@ -2229,13 +2414,22 @@ function setRunFeedback(result){
   title.className = "feedback-title";
   title.textContent = feedback.title;
   const observation = document.createElement("span");
+  if(SIMPLE_FAMILY_RULE_LANGUAGE) observation.className = "run-arrival-summary";
   observation.textContent = feedback.observation;
   status.append(title, observation);
+  if(!result.ok && !SIMPLE_FAMILY_RULE_LANGUAGE){
+    const active = scn.agents.filter(agent => agent.active);
+    const finalAgents = result.frames?.at(-1)?.agents || {};
+    const reached = active.filter(agent => finalAgents[agent.id]?.done).length;
+    const progress = document.createElement("span");
+    progress.className = "run-arrival-summary";
+    progress.textContent = ` (${reached}/${active.length} robots arrived this run)`;
+    title.append(progress);
+  }
   updateContinueButton();
-  if(result?.ok && curIndex === TASKS.length - 1){
-    showTaskCompletionDialog();
-  }else{
-    scheduleAutoAdvance(result);
+  if(result?.ok && showSuccess){
+    if(curIndex === TASKS.length - 1) showTaskCompletionDialog();
+    else showTaskSuccessDialog();
   }
   return feedback;
 }
@@ -2249,27 +2443,109 @@ function updateContinueButton(){
   }
 }
 
-function scheduleAutoAdvance(result){
-  if(autoAdvanceTimer){ clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
+function closeTaskSuccessDialog(){
+  if(taskSuccessTimer !== null){
+    clearTimeout(taskSuccessTimer);
+    taskSuccessTimer = null;
+  }
+  clearSuccessConfetti();
+  const dialog = $("task-success-dialog");
+  if(dialog?.open) dialog.close();
+}
+
+function clearSuccessConfetti(){
+  if(successConfettiTimer !== null) clearTimeout(successConfettiTimer);
+  successConfettiTimer = null;
+  successConfettiLayer?.getAnimations({subtree:true}).forEach(animation => animation.cancel());
+  successConfettiLayer?.remove();
+  successConfettiLayer = null;
+}
+
+function showSuccessConfetti(dialog){
+  const run = runs.at(-1);
+  if(!dialog || !run?.ok || !run.run_id) return;
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(window.StudyData?.snapshot().events.some(event =>
+    event.event_type === "task_success_confetti_shown" && event.detail?.run_id === run.run_id)) return;
+  clearSuccessConfetti();
+  const layer = document.createElement("div");
+  layer.className = "task-success-confetti";
+  layer.setAttribute("aria-hidden", "true");
+  dialog.appendChild(layer);
+  successConfettiLayer = layer;
+  const colors = ["#2670d5", "#13966c", "#e0ac26", "#df5987", "#24a1ab", "#e5743d"];
+  const count = 168;
+  const particleScale = Math.min(1, Math.max(.65, innerWidth / 800));
+  // Deterministic decoration leaves the experiment's random state untouched.
+  for(let index=0; index<count; index++){
+    const particle = document.createElement("span");
+    particle.className = `task-success-confetti-piece${index % 5 === 0 ? " is-spark" : ""}`;
+    particle.style.color = colors[(Math.floor(index/2) + index*3) % colors.length];
+    const size = Math.round((index % 5 === 0 ? 8 : 12 + (index % 3) * 4) * particleScale);
+    particle.style.width = `${size}px`;
+    particle.style.height = `${size}px`;
+    particle.style.setProperty("--confetti-pixel-size", `${size}px`);
+    layer.appendChild(particle);
+    const side = index % 2 ? 1 : -1;
+    const spread = ((index * 47 + 23) % 173) / 173;
+    const lift = ((index * 31 + 11) % 61) / 61;
+    const fall = ((index * 23 + 7) % 67) / 67;
+    const startX = innerWidth * (side < 0 ? .28 : .72) + ((index*7)%19 - 9)*2;
+    const startY = innerHeight * (.73 + (index % 7)*.008);
+    const endX = 12 + spread * (innerWidth - 24);
+    const rise = innerHeight * (.32 + lift*.45);
+    const endY = innerHeight * (.78 + fall*.28);
+    const frames = Array.from({length:16}, (_, step) => {
+      const t = step / 15;
+      const x = Math.round(startX + (endX-startX)*Math.min(1,t*1.6));
+      const y = Math.round(startY + (endY-startY)*t - 4*rise*t*(1-t));
+      return {transform:`translate(${x}px, ${y}px)`, opacity:step === 0 || step === 15 ? 0 : 1,
+        offset:t, easing:"steps(1, end)"};
+    });
+    if(reducedMotion){
+      particle.style.transform = frames[6].transform;
+      particle.style.opacity = "1";
+    }else{
+      particle.animate(frames, {duration:860, delay:(index % 6)*12, fill:"both"});
+    }
+  }
+  window.StudyData?.record("task_success_confetti_shown", {
+    run_id:run.run_id, completed_trial_index:curIndex + 1,
+    animation:"pixel-popup-confetti-v2", animated:!reducedMotion,
+    particle_count:count, duration_ms:920,
+  });
+  successConfettiTimer = setTimeout(clearSuccessConfetti, 950);
+}
+
+function showTaskSuccessDialog(){
+  const dialog = $("task-success-dialog");
   const completedIndex = curIndex;
   const nextTask = TASKS[completedIndex + 1];
-  if(!result?.ok) return;
-  if(!nextTask){
-    if(completionDialogOpen) return;
-    recordRuleEvent("study_completion_scheduled", {delay_ms:0});
-    showTaskCompletionDialog();
-    return;
-  }
-  if(!taskUnlocked(nextTask)) return;
+  if(!dialog || dialog.open || !nextTask || !taskUnlocked(nextTask)) return;
+  const runId = runs.at(-1)?.run_id || null;
+  recordRuleEvent("task_success_dialog_shown", {
+    run_id:runId,
+    completed_trial_index:curIndex + 1,
+  });
+  dialog.showModal();
+  showSuccessConfetti(dialog);
   recordRuleEvent("task_auto_advance_scheduled", {
+    run_id:runId,
     source_shift_id:scn.id,
     target_shift_id:nextTask.id,
     delay_ms:1000,
   });
-  autoAdvanceTimer = setTimeout(() => {
-    autoAdvanceTimer = null;
+  taskSuccessTimer = setTimeout(() => {
+    taskSuccessTimer = null;
+    closeTaskSuccessDialog();
     if(curIndex !== completedIndex || !shiftStates[scn.id].lastOk) return;
+    recordRuleEvent("task_success_auto_advanced", {
+      run_id:runId,
+      completed_trial_index:completedIndex + 1,
+      target_shift_id:nextTask.id,
+    });
     switchTask(completedIndex + 1);
+    $("run").focus();
   }, 1000);
 }
 
@@ -2309,6 +2585,7 @@ function showTaskCompletionDialog(){
     });
   }
   backdrop.hidden = false;
+  showSuccessConfetti(backdrop.querySelector(".task-complete-dialog"));
   saveBeforeDebrief();
 }
 
@@ -2346,7 +2623,7 @@ function frameStepLabel(index){
   const waiting = Object.values(frame?.agents || {}).some(agent => agent.waiting);
   const failed = frame?.event && frame.event.type !== "machine-complete";
   if(lastResult?.ok && index === total) return `Finish · ${index}/${total}`;
-  if(failed && index === total) return `Conflict · ${index}/${total}`;
+  if(failed) return `Conflict · ${index}/${total}`;
   if(waiting) return `Wait · ${index}/${total}`;
   return `Move · ${index}/${total}`;
 }
@@ -2361,10 +2638,12 @@ function showFrameAt(index, updateStatus=true, source="automatic"){
     frame_total:lastFrames.length - 1,
     frame:lastFrames[frameIndex],
     run_index:runs.length,
+    run_id:runs.at(-1)?.run_id || null,
   });
+  persistTaskProgress();
   if(updateStatus){
     if(lastResult && frameIndex === lastFrames.length - 1){
-      setRunFeedback(lastResult);
+      setRunFeedback(lastResult, false);
     }else{
       setStatus(frameIndex === 0
         ? "Start: every robot is ready to follow its shortest route."
@@ -2416,15 +2695,22 @@ function libraryNorms(){
 }
 
 function play(trigger="manual"){
-  if(timer){ clearInterval(timer); timer = null; }
-  if(autoAdvanceTimer){ clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
+  if(!isPureFamilyRulebook(rules, activeRuleFamily)){
+    window.StudyData?.record("run_rejected", {reason:"mixed-or-invalid-rule", active_rule_family:activeRuleFamily});
+    setStatus("Choose a rule using one feature only.", "bad");
+    return;
+  }
+  const runGuidanceVisible = $("run").classList.contains("is-guided");
+  stopTaskAnimation("new-run");
   const runButton = $("run");
   if(runButton){
     runButton.textContent = "Run rule";
     runButton.classList.add("primary");
-    runButton.classList.remove("secondary-run");
+    runButton.classList.remove("secondary-run", "is-guided");
   }
   const norms = currentNorms();
+  const runId = window.crypto?.randomUUID?.() || `${PARTICIPANT_CODE}-${runs.length+1}-${Date.now()}`;
+  activeRunId = runId;
   window.StudyData?.setContext({
     trial_index:curIndex + 1,
     task_id:scn.id,
@@ -2432,21 +2718,22 @@ function play(trigger="manual"){
     attempt_index:shiftStates[scn.id].attempts + 1,
     rulebook_revision:rulebookRevision,
   });
-  window.StudyData?.record("run_started", {
+  const startedEvent = window.StudyData?.record("run_started", {
+    run_id:runId,
+    run_guidance_visible:runGuidanceVisible,
+    completion_protocol:RUN_COMPLETION_PROTOCOL,
+    completed_agent_ids_before:[],
+    active_rule_family:activeRuleFamily,
+    rule_state:ruleMetricsState(),
     trigger,
     rule_summary:ruleSummary(),
     rule_json:ruleJson(),
   });
-  const completedBefore = new Set(localCompletedByTask.get(scn.id) || []);
+  // Local continuation applies within this Run; every encounter starts fresh.
+  const completedBefore = new Set();
   const result = CONTINUATION_CONDITION === "local"
     ? simulateLocalContinuation(scn, norms, completedBefore)
     : studyGlobalResult(scn, norms);
-  if(CONTINUATION_CONDITION === "local"){
-    localCompletedByTask.set(
-      scn.id,
-      new Set((result.completedAgentIds || []).map(id => String(id))),
-    );
-  }
   result.testedNorms = norms.map(norm => ({
     action:norm.action,
     feedbackLabel:norm.feedbackLabel,
@@ -2479,7 +2766,12 @@ function play(trigger="manual"){
   const now = Date.now();
   const feedback = buildRunFeedback(result);
   const simpleState = SIMPLE_FAMILY_RULE_LANGUAGE ? simpleRuleState() : null;
+  const popcount = value => {let n=0;for(;value;value&=value-1)n++;return n;};
+  const edits = ruleEvents.slice(lastRuleEventIndex).filter(event => event.type === "rule_value_added" || event.type === "rule_value_removed");
+  const previous = [...runs].reverse().find(run => run.shift_id === scn.id);
   const record = {
+    run_id:runId,
+    run_guidance_visible:runGuidanceVisible,
     participant_code: PARTICIPANT_CODE,
     experiment_version:RAW_LIBRARY.experiment_version || 2,
     schedule:RAW_LIBRARY.schedule || null,
@@ -2487,7 +2779,12 @@ function play(trigger="manual"){
     curriculum_branch:activeTaskBranch,
     continuation_condition:CONTINUATION_CONDITION,
     run_trigger:trigger,
+    completion_protocol:RUN_COMPLETION_PROTOCOL,
     shift_id: scn.id,
+    rule_editor_protocol:RULE_EDITOR_PROTOCOL,
+    active_rule_family:activeRuleFamily,
+    family_draft_state:familyDraftMetrics(),
+    family_switches_since_last_run:ruleEvents.slice(lastRuleEventIndex).filter(event => event.type === "rule_family_changed").length,
     task_item_id:scn.itemId,
     shift_label: scn.label,
     shift_attempt_index:shiftState.attempts,
@@ -2501,6 +2798,13 @@ function play(trigger="manual"){
     movement_mask:simpleState?.movementMask ?? null,
     role_mask:simpleState?.roleMask ?? null,
     selected_value_count:simpleState?.valueCount ?? null,
+    trial_start_rule:trialStartRule,
+    movement_hamming_from_trial_start:popcount(simpleState.movementMask ^ trialStartRule.movement_mask),
+    type_hamming_from_trial_start:popcount(simpleState.roleMask ^ trialStartRule.role_mask),
+    hamming_from_previous_run:previous ? popcount(simpleState.movementMask ^ previous.movement_mask) + popcount(simpleState.roleMask ^ previous.role_mask) : null,
+    value_edits_since_last_run:edits.length,
+    visible_trial_ms:startedEvent?.visible_context_ms ?? null,
+    time_to_first_run_ms:shiftState.attempts === 1 ? now-trialStartedAt : null,
     active_rule_ids:rules.map(rule => rule.id),
     active_library_rule_ids:rules.map(rule => rule.sourceLibraryId).filter(Boolean),
     saved_library_rule_ids:library.map(entry => entry.id),
@@ -2524,6 +2828,9 @@ function play(trigger="manual"){
   };
   runs.push(record);
   window.StudyData?.record("run_completed", record);
+  for(const [type, condition] of [["first_type_rule_run", simpleState.roleMask > 0], ["first_mixed_rule_run", simpleState.representation === "mixed"], ["first_pure_type_rule_run", simpleState.representation === "pure_type"]]){
+    if(condition && !window.StudyData?.snapshot().events.some(event => event.event_type === type)) window.StudyData?.record(type, {run_id:runId, rule_state:ruleMetricsState()});
+  }
   lastRuleEventIndex = ruleEvents.length;
   lastAttemptAt = now;
   renderLog();
@@ -2538,14 +2845,17 @@ function play(trigger="manual"){
     if(frameIndex >= lastFrames.length - 1){
       clearInterval(timer);
       timer = null;
+      window.StudyData?.record("run_animation_completed", {run_id:runId, frame_total:lastFrames.length-1});
+      activeRunId = null;
+      persistTaskProgress();
       setRunFeedback(result);
     }
   }, 360);
+  persistTaskProgress();
 }
 
 function resetBoard(){
-  if(timer){ clearInterval(timer); timer = null; }
-  if(autoAdvanceTimer){ clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
+  stopTaskAnimation("board-reset");
   lastResult = null;
   lastFrames = [];
   frameIndex = 0;
@@ -2557,6 +2867,7 @@ function resetBoard(){
     run_index:runs.length,
     rulebook_revision:rulebookRevision,
   });
+  persistTaskProgress();
 }
 
 function download(name, mime, content){
@@ -2608,6 +2919,7 @@ function startTaskAfterTutorial(){
   }else if(SIMPLE_FAMILY_RULE_LANGUAGE && !simpleSelectedValues().length){
     setStatus("No waiting rule is selected. Run to see what happens, or choose a rule.", "");
   }
+  showFirstRunGuidance();
   if(shouldAutoShowGuide(scn)){
     setTimeout(() => showSceneGuide(), 0);
   }
@@ -2675,6 +2987,11 @@ function resizeTaskLayout(){
   }, 120);
 }
 
+window.addEventListener("pagehide", () => {stopTaskAnimation("page-hidden"); persistTaskProgress();});
+
+(async function initializeTask(){
+if(!await window.StudyData?.ready || !window.StudyData.requireStage("task")) return;
+const restored = restoreTaskProgress();
 if(!TASKS.length){
   setStatus("Could not find data/tasks.generated.js. Run python3 solver/task_generator.py first.", "bad");
 }else{
@@ -2692,6 +3009,7 @@ if(!TASKS.length){
     if(event.target.id === "notice-backdrop") closeNotice();
   };
   $("task-complete-retry").onclick = saveBeforeDebrief;
+  $("task-success-dialog").addEventListener("cancel", event => event.preventDefault());
   $("task-complete-debrief").onclick = async () => {
     const button = $("task-complete-debrief");
     if(button.disabled) return;
@@ -2721,13 +3039,27 @@ if(!TASKS.length){
     trial_index:curIndex + 1,
     task_id:scn.id,
     task_item_id:scn.itemId,
-    attempt_index:0,
+    attempt_index:shiftStates[scn.id].attempts,
     rulebook_revision:rulebookRevision,
   });
   window.StudyData?.record("experimental_assignment_loaded", window.EXPERIMENT_ASSIGNMENT || {});
-  rules = sceneRuleDrafts.get(scn.id) || loadStarterRules(scn);
+  if(!restored){
+    rules = loadStarterRules(scn);
+    carryPracticeRuleIntoFirstTask();
+  }
+  trialStartRule ||= ruleMetricsState();
+  taskReady = true;
   renderAll();
   window.ShufflePreview.install();
-  if(SKIP_TUTORIAL) startTaskAfterTutorial();
+  if(restored){
+    window.StudyData.record("task_progress_restored", {run_count:runs.length, rule_state:ruleMetricsState(),
+      completed_agent_ids:[], completion_protocol:RUN_COMPLETION_PROTOCOL});
+    if(lastFrames.length) showFrameAt(frameIndex, false, "restored");
+    if(lastResult) setRunFeedback(lastResult);
+    showFirstRunGuidance();
+  }else if(SKIP_TUTORIAL) startTaskAfterTutorial();
   else initializeTutorial();
+  recordTaskEntry(restored ? "reload" : "initial");
+  persistTaskProgress();
 }
+})();

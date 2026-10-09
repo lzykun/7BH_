@@ -6,7 +6,7 @@
   <title>Comprehension Questions</title>
   <link rel="icon" href="data:,">
   <meta name="study-data-endpoint" content="../record_result.php">
-  <link rel="stylesheet" href="../styles.css?v=7bh-formal-v15">
+  <link rel="stylesheet" href="../styles.css?v=7bh-formal-v23">
   </head>
 <body data-stage="comprehension" data-asset-prefix="../">
 <div class="onboarding-screen" id="comprehension-screen" hidden>
@@ -17,7 +17,7 @@
       <fieldset class="comprehension-question">
         <legend>1. What completes a task?</legend>
         <label class="comprehension-option"><input type="radio" name="check1" value="a"><span>One robot reaches any charging bay.</span></label>
-        <label class="comprehension-option"><input type="radio" name="check1" value="b"><span>Every robot reaches the charging bay with the same number.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check1" value="b"><span>Every robot reaches the charging bay with the same number in the same Run.</span></label>
         <label class="comprehension-option"><input type="radio" name="check1" value="c"><span>You press Run once.</span></label>
         <label class="comprehension-option"><input type="radio" name="check1" value="d"><span>Every robot waits at least once.</span></label>
       </fieldset>
@@ -31,9 +31,9 @@
       </fieldset>
 
       <fieldset class="comprehension-question">
-        <legend>3. Which robot features appear in the rule editor?</legend>
-        <label class="comprehension-option"><input type="radio" name="check3" value="a"><span>Movement direction and Robot type.</span></label>
-        <label class="comprehension-option"><input type="radio" name="check3" value="b"><span>Destination number only.</span></label>
+        <legend>3. Which features can your waiting rule use?</legend>
+        <label class="comprehension-option"><input type="radio" name="check3" value="a"><span>Either Movement direction or Robot type, one at a time.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check3" value="b"><span>Movement direction and Robot type together in the same rule.</span></label>
         <label class="comprehension-option"><input type="radio" name="check3" value="c"><span>Distance to the charging bay only.</span></label>
         <label class="comprehension-option"><input type="radio" name="check3" value="d"><span>The order in which robots appear on the map.</span></label>
       </fieldset>
@@ -62,11 +62,12 @@
     </section>
   </main>
 </div>
-<script src="../shared-pool.js?v=7bh-formal-v15"></script>
-<script src="../data-collector.js?v=7bh-formal-v15"></script>
-<script src="../shuffle-bootstrap.js?v=7bh-formal-v15"></script>
-<script src="../engine.js?v=7bh-formal-v15"></script>
-<script src="../tutorial.js?v=7bh-formal-v15"></script>
-<script src="../stage-page.js?v=7bh-formal-v15"></script>
+<script src="../shared-pool.js?v=7bh-formal-v23"></script>
+<script src="../study-config.js?v=7bh-formal-v23"></script>
+<script src="../data-collector.js?v=7bh-formal-v23"></script>
+<script src="../shuffle-bootstrap.js?v=7bh-formal-v23"></script>
+<script src="../engine.js?v=7bh-formal-v23"></script>
+<script src="../tutorial.js?v=7bh-formal-v23"></script>
+<script src="../stage-page.js?v=7bh-formal-v23"></script>
 </body>
 </html>

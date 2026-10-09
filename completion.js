@@ -1,17 +1,10 @@
 /* Completion, final upload confirmation, and recruitment-platform return. */
-(function(){
+(async function(){
 "use strict";
 
 const data = window.StudyData;
 const params = data?.params || new URLSearchParams(window.location.search);
-data?.init({stage:"completion"});
-const priorCompletion = data?.snapshot()?.events?.some(event => event.event_type === "study_completed");
-if(!priorCompletion){
-  data?.record("study_completed", {
-    assigned_condition:params.get("assigned_condition"),
-    assignment_arm:params.get("assignment_arm"),
-  });
-}
+if(!await data?.ready || !data.init({stage:"completion"})) return;
 
 const session = document.getElementById("completion-session");
 if(session) session.textContent = data?.sessionId || "Unavailable";
@@ -64,7 +57,7 @@ async function save(){
   if(result?.local_only){
     status.textContent = "Local preview: the event record is stored in this browser. Use the download buttons below to keep a copy.";
     showCompletionRoute();
-  }else if(result?.ok){
+  }else if(result?.ok && result.server_completed){
     status.textContent = completionUrl
       ? "Your responses have been saved. You may now return to Prolific."
       : "Your responses have been saved. You may now close this tab and return to the recruitment platform.";

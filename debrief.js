@@ -1,11 +1,11 @@
 /* Final questionnaire, confirmed upload, and completion code. */
-(function(){
+(async function(){
 "use strict";
 
 const COMPLETION_CODE = "C1LALY4B";
 const data = window.StudyData;
 const params = data?.params || new URLSearchParams(window.location.search);
-data?.init({stage:"debrief"});
+if(!await data?.ready || !data.init({stage:"debrief"})) return;
 data?.record("debrief_viewed");
 
 const form = document.getElementById("debrief-form");
@@ -93,7 +93,7 @@ function showCompletion(){
   if(questionnaire) questionnaire.hidden = true;
   if(completion) completion.hidden = false;
   if(completionCode) completionCode.textContent = COMPLETION_CODE;
-  if(completionStatus) completionStatus.textContent = "Your responses have been saved.";
+  if(completionStatus) completionStatus.textContent = data.endpoint ? "Your responses have been saved." : "Preview complete.";
   completion?.scrollIntoView({block:"start"});
 }
 
@@ -136,7 +136,7 @@ form?.addEventListener("submit", async event => {
 
   recordCompletion(responses());
   const result = await data?.flush({attempts:3});
-  if(result?.ok || result?.local_only){
+  if(result?.ok && (result.local_only || result.server_completed)){
     markSaved();
     showCompletion();
     return;
@@ -162,5 +162,5 @@ copyButton?.addEventListener("click", async () => {
 
 restoreDraft();
 updateSubmit();
-if(alreadySaved()) showCompletion();
+if(alreadySaved() && (!data.endpoint || data.snapshot().server_completed)) showCompletion();
 })();

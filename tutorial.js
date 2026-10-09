@@ -13,6 +13,8 @@ let viewportResizeTimer = null;
 const STEP_MS = 420;
 const SIMPLE_TYPE_COLOR = "#2D70B3";
 const CONTINUATION_CONDITION = "local";
+const SIMPLE_PRACTICE_PROTOCOL = "type-only-d-mirror-v1";
+const STORY_PROTOCOL = "space-manager-note-type-mirror-v1";
 const ASSET_PREFIX = document.body?.dataset.assetPrefix || "";
 const SIMPLE_IDENTITY_COLORS = [
   "#2563B8", "#C04B23", "#167A62", "#7653B5",
@@ -32,7 +34,6 @@ const INSTRUCTION_IMAGE_PATHS = [
   `${ASSET_PREFIX}assets/instructions/map-overview.png?v=32`,
   `${ASSET_PREFIX}assets/instructions/robot-badges.png?v=32`,
 ];
-const OVERVIEW_REVEAL_STEP_COUNT = 6;
 
 function icon(name, extraClass=""){
   const cls = `ui-icon ${extraClass}`.trim();
@@ -105,8 +106,16 @@ const state = {
   simpleCollisionObserved:false,
   simpleMovementObserved:false,
   simpleValues:{move_dir:[], role:[]},
+  simpleFamily:"role",
+  simpleFeatureDemo:{simpleFamily:"role", simpleValues:{move_dir:[], role:[]}},
+  ruleEditorProtocol:window.STUDY_CONFIG?.rule_editor_protocol,
   simplePracticeSolved:false,
+  simplePracticeSceneId:null,
   overviewRevealStep:0,
+  featuresRevealStep:0,
+  storyProtocol:STORY_PROTOCOL,
+  storyRevealSteps:{},
+  storySceneViews:{},
 };
 
 function agentDisplayId(id){
@@ -227,6 +236,21 @@ const SIMPLE_CONFLICT_SCENE = makeScene(
   [
     tutorialRobot(0, [2,1], [1,4], "carrier", "E"),
     tutorialRobot(1, [4,3], [0,5], "operator", "N"),
+  ],
+  {
+    diagonalEdges:[
+      [[2,3], [1,4]],
+      [[1,4], [0,5]],
+    ],
+  },
+);
+
+const SIMPLE_PRACTICE_SCENE = makeScene(
+  "tutorial_type_d_wait_practice",
+  wallsOutside(SIMPLE_CONFLICT_OPEN),
+  [
+    tutorialRobot(0, [2,1], [0,5], "carrier", "E"),
+    tutorialRobot(1, [4,3], [1,4], "loader", "N"),
   ],
   {
     diagonalEdges:[
@@ -378,61 +402,108 @@ const DEFAULT_PAGES = ALL_PAGES.filter(page => page.id !== "library");
 
 const SIMPLE_PAGES = [
   {
-    id:"simple_overview",
-    title:"Overview",
-    lead:"The warehouse robots are heading back to their charging bays. Each robot follows its own route to the bay with the same number and colour.",
-    points:[
-      "Sometimes two robots reach the same square at the same time and get in each other's way.",
-      "Your task is to write a simple rule to coordinate the robots and prevent them from colliding.",
-      "You write the rule by selecting values from two robot features: <strong class=\"tutorial-key\">Movement direction</strong> and <strong class=\"tutorial-key\">Robot type</strong>.",
-      "You write one rule for the whole map, and it decides who waits each time robots meet.",
-      "The task is complete when <strong class=\"tutorial-key\">every robot reaches its bay</strong>.",
-    ],
-    scene:SIMPLE_CONFLICT_SCENE,
-    controls:false,
-    reference:"overview",
-  },
-  {
-    id:"simple_features",
-    title:"Robot features",
-    lead:"The waiting rule can use either of two robot features: Robot type or next Movement direction.",
+    id:"simple_welcome",
+    title:"",
+    lead:"The robots are heading back to their charging bays. Each robot and its charging bay have the same color.",
     points:[],
     scene:null,
     controls:false,
-    reference:"intro_guide",
+    reference:"doc_matching",
+    visualAfter:0,
   },
   {
     id:"simple_movement",
-    title:"Watch them travel",
-    lead:"Press Run. With no conflict on these routes, both robots will move straight to their charging bays.",
-    points:[],
+    title:"",
+    lead:"Robots are programmed to find the shortest routes to their charging bay.",
+    points:["Click the run button to see the robots moving to their bays!"],
     scene:SIMPLE_MOVEMENT_SCENE,
     controls:true,
     initialNote:"",
     requires:"movement_observed",
+    visualAfter:1,
   },
   {
     id:"simple_encounter",
-    title:"A conflict on the route",
-    lead:"Press Run. Robot 1 and Robot 2 will reach the same square at the same time. Robot 3 is travelling on another route.",
-    points:["Watch what happens to all three robots when Robot 1 and Robot 2 meet."],
-    scene:SIMPLE_CONDITION_SCENE,
+    title:"",
+    lead:"Sometimes, the layout can get a little complicated..",
+    points:[
+      "And the robots can move into each other, and clash!",
+      "Click the Run button and see what happens in this map.",
+    ],
+    scene:SIMPLE_PRACTICE_SCENE,
     controls:true,
     initialNote:"",
     requires:"collision_observed",
+    visualAfter:0,
+    controlsAfter:2,
+  },
+  {
+    id:"simple_choice",
+    title:"",
+    lead:"Your task is to coordinate the robots and prevent them from colliding.",
+    points:[
+      "You can do this by adding coordination rules to the robots.",
+      "For example, when two robots are going to meet, you can specify which robot should wait:",
+    ],
+    scene:null,
+    controls:false,
+  },
+  {
+    id:"simple_features",
+    title:"",
+    lead:"The letter on each robot shows its Type.",
+    points:[
+      "A robot's Type stays the same throughout its route.",
+      "The arrow shows which direction the robot will move next, and can change along its route.",
+    ],
+    scene:null,
+    controls:false,
+    reference:"features",
+    visualAfter:0,
+  },
+  {
+    id:"simple_tabs",
+    title:"",
+    lead:"Choose Type or Movement to decide who waits.",
+    points:[
+      "Click an option to select it. Click it again to deselect it.",
+      "Only one tab applies at a time. Each tab keeps your previous selections.",
+      "Matching robots get a green outline. This shows your selection, not a successful Run.",
+    ],
+    scene:null,
+    controls:false,
+    reference:"simple_builder",
+    visualAfter:0,
   },
   {
     id:"simple_practice",
-    title:"Solve the conflict",
-    lead:"Choose which robot should wait, then press Run.",
+    title:"",
+    lead:"Now, configure a rule to solve the clash in this map.",
     points:[
-      "Click a value once to select it. Click it again to remove it.",
-      "Your waiting rule <strong class=\"tutorial-key\">stays selected when the next task starts</strong>, and you can still edit it.",
+      "For this practice, use Type.",
+      "Select a Type and look for the green outline on the matching robot.",
     ],
-    scene:SIMPLE_CONFLICT_SCENE,
+    scene:SIMPLE_PRACTICE_SCENE,
     controls:true,
     reference:"simple_builder",
     requires:"simple_practice",
+    visualAfter:0,
+  },
+  {
+    id:"simple_ready",
+    title:"",
+    lead:"Good job!",
+    points:[
+      "You need to configure ONE rule to coordinate all the robots in this warehouse.",
+      "Every robot will follow your rule.",
+      "The task is complete when every robot reaches its bay in the same Run.",
+      "By default, the rule you compose in the current trial will carry over to the next.",
+      "Ready?",
+    ],
+    scene:null,
+    controls:false,
+    reference:"manager_note",
+    visualAfter:5,
   },
 ];
 
@@ -443,7 +514,7 @@ const INSTRUCTION_STEPS = [
     lead:"The number on each robot matches its charging bay.",
     points:[
       "The robots move automatically.",
-      "Press Run to test your waiting rule.",
+      "Press Run to send the robots on their way.",
     ],
     visual:() => `
       <figure class="instruction-screenshot instruction-map-annotated">
@@ -463,8 +534,8 @@ const INSTRUCTION_STEPS = [
   },
   {
     label:"Step 2 · Robot information",
-    title:"Use robot features to write the waiting rule",
-    lead:"The rule editor lets you choose values from Robot type or Movement direction.",
+    title:"Meet your robots",
+    lead:"Select Robot types to choose which robots wait.",
     points:[
       "<strong class=\"tutorial-key\">Robot type</strong> is the letter. It stays with the robot.",
       "<strong class=\"tutorial-key\">Movement direction</strong> is the arrow. It shows which direction the robot will move next.",
@@ -475,13 +546,13 @@ const INSTRUCTION_STEPS = [
       </figure>`,
   },
   {
-    label:"Step 3 · Waiting rule",
+    label:"Step 3 · Who waits",
     title:"Choose who waits",
-    lead:"When two robots try to enter the same square, your rule decides which robot waits.",
+    lead:"When two robots try to enter the same square, your choices decide who waits.",
     points:[
-      "Select one or more Robot type or Movement direction values to decide which robot waits.",
+      "Choose Robot types to decide who waits.",
       "The <strong class=\"tutorial-key\">matching robot waits</strong> while the other moves first.",
-      "At the start of the next task, your rule <strong class=\"tutorial-key\">stays selected</strong>. You can keep it or edit it.",
+      "Your choices <strong class=\"tutorial-key\">stay selected</strong> for the next task. Keep them or change them as you go.",
     ],
     visual:() => `<div class="instruction-live-editor">${simpleRuleBuilderMarkup()}</div>`,
   },
@@ -502,7 +573,9 @@ function drawBoard(host, scene, frame=null){
   host.innerHTML = "";
   const frameWidth = host.parentElement?.clientWidth || window.innerWidth;
   const widthCell = Math.floor(Math.max(220, frameWidth - 24) / scene.cols);
-  const heightBudget = Math.max(230, Math.min(560, window.innerHeight * .56));
+  const heightBudget = tutorialMode === "simple" && host.parentElement?.clientHeight
+    ? Math.max(120, host.parentElement.clientHeight - 16)
+    : Math.max(230, Math.min(560, window.innerHeight * .56));
   const heightCell = Math.floor(heightBudget / scene.rows);
   CELL = Math.max(24, Math.min(42, widthCell, heightCell));
   host.style.width = `${scene.cols * CELL}px`;
@@ -573,6 +646,11 @@ function drawBoard(host, scene, frame=null){
     robot.classList.toggle("done", !!meta.done);
     robot.classList.toggle("failed", !!meta.failed);
     robot.classList.toggle("waiting", !!meta.waiting);
+    const matchesRule = tutorialMode === "simple" && PAGES[state.page]?.id === "simple_practice" && (
+      (state.simpleValues.move_dir || []).some(value => String(value) === String(agent.movementArrow)) ||
+      (state.simpleValues.role || []).some(value => String(value) === String(agent.role))
+    );
+    robot.classList.toggle("rule-preview-waits", matchesRule);
     const outsideConflict = tutorialMode === "simple" &&
       PAGES[state.page]?.id === "simple_encounter" && Number(agent.id) === 2;
     if(outsideConflict){
@@ -585,7 +663,7 @@ function drawBoard(host, scene, frame=null){
           : "Robot 3: also stopped"
         : "Robot 3: not in conflict";
     }
-    const robotSize = Math.max(18, CELL - 14);
+    const robotSize = Math.max(18, CELL - 4);
     const robotInset = Math.max(2, (CELL - 4 - robotSize) / 2);
     robot.style.left = `${position[1] * CELL + robotInset}px`;
     robot.style.top = `${position[0] * CELL + robotInset}px`;
@@ -611,10 +689,12 @@ function drawBoard(host, scene, frame=null){
     host.appendChild(robot);
   });
 
-  const eventCell = frame?.event?.cell;
-  if(eventCell){
+  const failureEvents = frame?.failureEvents || frame?.simultaneousEvents || [frame?.event];
+  failureEvents.forEach(event => {
+    const eventCell = event?.cell;
+    if(!eventCell || event.type === "machine-complete") return;
     host.querySelector(`[data-tutorial-cell="${K(eventCell[0], eventCell[1])}"]`)?.classList.add("flash");
-  }
+  });
 }
 
 function rulePracticeResult(){
@@ -668,6 +748,17 @@ function ruleReuseResult(){
 }
 
 function feedbackEntry(result){
+  if(tutorialMode === "simple"){
+    if(result.ok) return {kind:"ok", title:"Success", text:"Every robot reached its charging bay."};
+    const waiting = studyBothWaitingFeedback(PAGES[state.page].scene, result, simpleTutorialRules(), agent => tutorialTargetNumber(agent, PAGES[state.page].scene));
+    return {
+      kind:"bad",
+      title:result.reason === "timeout" ? "Robots are still waiting" : "Robots could not get through",
+      text:PAGES[state.page]?.id === "simple_encounter"
+        ? ""
+        : waiting || "Take another look and try again.",
+    };
+  }
   if(result.ok){
     return {
       kind:"ok",
@@ -737,6 +828,9 @@ function showFrame(index, inspected=false, source="automatic"){
   el("tut-prev").disabled = state.frameIndex === 0;
   el("tut-next-step").disabled = state.frameIndex === state.frames.length - 1;
   if(state.frameIndex === state.frames.length - 1){
+    if(page.id === "simple_encounter") state.simpleCollisionObserved = state.result.reason === "collision";
+    if(page.id === "simple_movement") state.simpleMovementObserved = state.result.ok;
+    if(page.id === "simple_practice") state.simplePracticeSolved = state.result.ok;
     setFeedback(feedbackEntry(state.result));
     if(page.id === "rules") renderReference("rule");
     if(page.id === "library") renderReference("library");
@@ -748,6 +842,10 @@ function showFrame(index, inspected=false, source="automatic"){
       step_index:state.frameIndex,
     });
   }
+  if(tutorialMode === "simple" && (state.frameIndex === state.frames.length - 1 ||
+    (source === "manual" && state.storySceneViews[page.id]))){
+    state.storySceneViews[page.id] = {result:structuredClone(state.result), frameIndex:state.frameIndex};
+  }
   emit("tutorial_simulation_step", {
     tutorial_page:page.id,
     step_index:state.frameIndex,
@@ -755,13 +853,17 @@ function showFrame(index, inspected=false, source="automatic"){
     source,
     frame:state.frames[state.frameIndex],
   });
+  updateContinueState();
 }
 
 function runCurrentScene(){
   const page = PAGES[state.page];
   if(!page.scene) return;
+  delete state.storySceneViews[page.id];
   stopAnimation();
   const isSimplePractice = page.id === "simple_practice";
+  if(page.id === "simple_movement") state.simpleMovementObserved = false;
+  if(page.id === "simple_encounter") state.simpleCollisionObserved = false;
   state.result = page.id === "rules"
     ? rulePracticeResult()
     : page.id === "library"
@@ -779,21 +881,13 @@ function runCurrentScene(){
     state.reuseSolved = state.result.ok;
     updateContinueState();
   }
-  if(page.id === "simple_encounter"){
-    state.simpleCollisionObserved = state.result.reason === "collision";
-    updateContinueState();
-  }
-  if(page.id === "simple_movement"){
-    state.simpleMovementObserved = state.result.ok;
-    updateContinueState();
-  }
   if(page.id === "simple_practice"){
-    state.simplePracticeSolved = state.result.ok;
-    updateContinueState();
+    state.simplePracticeSolved = false;
   }
-  const practiceRequirementMet = isSimplePractice ? state.simplePracticeSolved : null;
+  const practiceRequirementMet = isSimplePractice ? state.result.ok : null;
   state.runs.push({
     page_id:page.id,
+    scene_id:page.scene.id,
     ok:state.result.ok,
     reason:state.result.reason,
     simple_representation:isSimplePractice ? simpleTutorialRepresentation() : null,
@@ -802,10 +896,13 @@ function runCurrentScene(){
   });
   emit("tutorial_run", {
     tutorial_page:page.id,
+    scene_id:page.scene.id,
+    practice_protocol:isSimplePractice ? SIMPLE_PRACTICE_PROTOCOL : null,
     ok:state.result.ok,
     reason:state.result.reason,
     simple_representation:isSimplePractice ? simpleTutorialRepresentation() : null,
     practice_requirement_met:practiceRequirementMet,
+    selected_values:isSimplePractice ? structuredClone(state.simpleValues) : null,
   });
   setFeedback(null);
   showFrame(0, false, "run-start");
@@ -815,11 +912,15 @@ function runCurrentScene(){
       return;
     }
     stopAnimation();
+    updateContinueState();
+    if(document.activeElement === el("tut-run")) el("tut-overview-reveal-prompt")?.focus({preventScroll:true});
   }, STEP_MS);
+  updateContinueState();
 }
 
 function resetCurrentScene(source="system"){
   const page = PAGES[state.page];
+  delete state.storySceneViews[page.id];
   stopAnimation();
   state.result = null;
   state.frames = [];
@@ -831,6 +932,7 @@ function resetCurrentScene(source="system"){
   const note = page.reference === "simple_builder" ? "" : page.initialNote || "";
   setFeedback(null, note);
   if(source === "manual") emit("tutorial_scene_reset", {tutorial_page:page.id});
+  updateContinueState();
 }
 
 function mapReferenceMarkup(){
@@ -856,10 +958,10 @@ function mapReferenceMarkup(){
   `;
 }
 
-function simpleIntroReferenceMarkup(){
+function simpleIntroReferenceMarkup(kind="intro_guide"){
   return `
     <div class="tut-intro-reference" aria-label="How to read robots and charging bays">
-      <div class="tut-intro-row">
+      <div class="tut-intro-row" ${kind === "features" ? "hidden" : ""}>
         <div class="tut-match-pair" aria-hidden="true">
           <span class="tut-match-robot">${icon("robot", "tut-match-robot-icon")}<i>1</i></span>
           <span class="tut-match-arrow">→</span>
@@ -867,10 +969,10 @@ function simpleIntroReferenceMarkup(){
         </div>
         <span class="tut-intro-copy">
           <strong>Match the charging bay</strong>
-          <small>Robot 1 returns to charging bay 1. Their blue colour matches too. Colour helps you find the right bay.</small>
+          <small>Robot 1 returns to charging bay 1, and they share the same blue colour. The colour helps you find the right bay.</small>
         </span>
       </div>
-      <div class="tut-intro-row">
+      <div class="tut-intro-row" ${kind === "matching" ? "hidden" : ""}>
         <div class="tut-feature-robot" aria-hidden="true">
           ${icon("robot", "tut-feature-robot-icon")}
           <span class="tut-feature-number">1</span>
@@ -887,26 +989,45 @@ function simpleIntroReferenceMarkup(){
 }
 
 function simpleOverviewReferenceMarkup(){
-  return `<div class="tut-overview-editor-live" aria-label="The waiting-rule editor chooses which robot waits.">${simpleRuleBuilderMarkup()}</div>`;
+  return `<div class="tut-overview-editor-live" aria-label="Choose which robots wait">${simpleRuleBuilderMarkup()}</div>`;
+}
+
+function waitingReferenceMarkup(){
+  return `<div class="story-wait-demo" role="img" aria-label="A robot matching your choices waits. The other robot goes first.">
+    <div class="story-wait-example" aria-hidden="true">
+      <span class="tut-match-robot is-waiting">${icon("robot", "tut-match-robot-icon")}<i>1</i></span>
+      <strong>Waits</strong><span>Matches your choices</span>
+    </div>
+    <div class="story-wait-example" aria-hidden="true">
+      <span class="story-go-robot"><span class="tut-match-robot">${icon("robot", "tut-match-robot-icon")}<i>2</i></span><b>→</b></span>
+      <strong>Goes first</strong><span>Does not match</span>
+    </div>
+  </div>`;
 }
 
 function simpleTutorialFields(){
   const schema = typeof EXPORTED_RULE_SCHEMA !== "undefined"
     ? EXPORTED_RULE_SCHEMA
     : window.TASK_LIBRARY?.rule_schema;
-  return (schema?.fields || []).filter(field =>
-    field.predicate === "move_dir" || field.predicate === "role"
-  );
+  const families = PAGES[state.page]?.id === "simple_tabs" ? ["role", "move_dir"] : ["role"];
+  return families.map(predicate => (schema?.fields || []).find(field => field.predicate === predicate)).filter(Boolean);
 }
 
 function simpleTutorialField(predicate){
   return simpleTutorialFields().find(field => field.predicate === predicate) || null;
 }
 
+function simpleEditorState(){
+  // Exploring either tab must not preselect the later Type-only practice.
+  return PAGES[state.page]?.id === "simple_tabs" ? state.simpleFeatureDemo : state;
+}
+
 function simpleTutorialSelectedValues(predicate){
+  const editor = simpleEditorState();
+  if(predicate !== editor.simpleFamily) return [];
   const field = simpleTutorialField(predicate);
   if(!field) return [];
-  const selected = new Set((state.simpleValues[predicate] || []).map(String));
+  const selected = new Set((editor.simpleValues[predicate] || []).map(String));
   return field.values.filter(value => selected.has(String(value.id)));
 }
 
@@ -922,7 +1043,7 @@ function simpleTutorialVisibleValues(field){
 function simpleTutorialRuleSentence(){
   const movement = simpleTutorialSelectedValues("move_dir");
   const role = simpleTutorialSelectedValues("role");
-  if(!movement.length && !role.length) return "No waiting rule yet.";
+  if(!movement.length && !role.length) return "Nobody is selected to wait yet.";
   const clauses = [];
   if(movement.length){
     clauses.push(`it is moving ${naturalTutorialList(
@@ -976,35 +1097,48 @@ function simpleTutorialRepresentation(){
 }
 
 function simpleBuilderHelp(){
-  if(state.simplePracticeSolved) return "That rule worked. Continue.";
-  return simpleTutorialValueCount() ? "Run the rule." : "Select a value.";
+  if(PAGES[state.page]?.id !== "simple_practice") return "";
+  if(state.simplePracticeSolved) return "Both robots are home.";
+  return simpleTutorialValueCount() ? "Press Run to try it." : "Choose who waits.";
 }
 
 function simpleRuleBuilderMarkup(){
+  const editor = simpleEditorState();
   const fields = simpleTutorialFields();
+  const isPractice = PAGES[state.page]?.id === "simple_practice";
+  const interactive = isPractice || PAGES[state.page]?.id === "simple_tabs";
   return `
-    <div class="tut-simple-builder" aria-label="Practice rule editor">
+    <div class="tut-simple-builder${fields.length === 1 ? " has-single-family" : ""}" aria-label="Choose who waits">
       <div class="simple-rule-context">WHEN TWO ROBOTS MEET</div>
       <section class="simple-rule-intro">
         <strong>Choose who waits</strong>
-        <p>Select one or more values, then test the rule.</p>
+        <p>${isPractice ? "Choose a Type, then press Run." : "Choose one tab, then select one or more options."}</p>
       </section>
-      <div class="simple-family-sections">
+      ${fields.length > 1 ? `<div class="rule-family-tabs" role="tablist" aria-label="Robot feature">
+        ${fields.map(field => `<button type="button" class="rule-family-tab" role="tab"
+          id="tutorial-family-tab-${field.predicate}" data-tut-tab="${field.predicate}"
+          aria-controls="tutorial-family-panel-${field.predicate}"
+          aria-selected="${editor.simpleFamily === field.predicate}" tabindex="${editor.simpleFamily === field.predicate ? 0 : -1}">
+          ${field.predicate === "role" ? "Type" : "Movement"}</button>`).join("")}
+      </div>` : ""}
+      <div class="simple-family-sections pure-family-panels">
         ${fields.map(field => {
-          const selected = new Set((state.simpleValues[field.predicate] || []).map(String));
+          const selected = new Set((editor.simpleValues[field.predicate] || []).map(String));
           const heading = field.predicate === "role"
             ? `${icon("robot", "family-button-icon")}<strong>Robot type</strong>`
             : '<span class="family-arrow-icon" aria-hidden="true">↗</span><strong>Movement direction</strong>';
-          return `<section class="simple-family-section family-${field.predicate}">
+          return `<section class="simple-family-section family-${field.predicate}" id="tutorial-family-panel-${field.predicate}"
+            ${fields.length > 1 ? `role="tabpanel" aria-labelledby="tutorial-family-tab-${field.predicate}"` : ""}
+            ${editor.simpleFamily !== field.predicate ? "hidden" : ""}>
           <div class="simple-family-heading">${heading}</div>
           <div class="simple-value-grid">
             ${simpleTutorialVisibleValues(field).map(value => {
               const isSelected = selected.has(String(value.id));
               const mark = field.predicate === "role"
                 ? `<span class="simple-role-swatch simple-type-swatch" style="--role-color:${SIMPLE_TYPE_COLOR}">${icon("robot", "simple-role-icon")}<span class="robot-type-letter simple-type-letter" aria-hidden="true">${simpleTypeLetter(value.id)}</span></span>`
-                : `<span class="simple-arrow-value">${value.symbol || value.id}</span>`;
+                : `<span class="simple-role-swatch simple-type-swatch" style="--role-color:${SIMPLE_TYPE_COLOR}">${icon("robot", "simple-role-icon")}<span class="robot-type-letter simple-type-letter simple-movement-mark">${value.symbol || value.id}</span></span>`;
               return `<button class="simple-value-button tut-simple-value-button${isSelected ? " selected" : ""}" type="button"
-                data-tut-family="${field.predicate}" data-tut-value="${value.id}" aria-pressed="${isSelected}">
+                data-tut-family="${field.predicate}" data-tut-value="${value.id}" aria-pressed="${isSelected}" ${interactive ? "" : "disabled"}>
                 ${mark}<span>${value.label}</span></button>`;
             }).join("")}
           </div>
@@ -1022,24 +1156,47 @@ function simpleRuleBuilderMarkup(){
 }
 
 function bindSimpleRuleBuilder(){
+  const editor = simpleEditorState();
+  const fields = simpleTutorialFields();
+  const selectTab = (family, trigger) => {
+    if(family === editor.simpleFamily || !fields.some(field => field.predicate === family)) return;
+    const from = editor.simpleFamily;
+    editor.simpleFamily = family;
+    emit("tutorial_rule_family_changed", {from_family:from, to_family:family, trigger});
+    renderReference(PAGES[state.page].reference);
+    el(`tutorial-family-tab-${family}`)?.focus();
+  };
+  document.querySelectorAll("#tut-rule-reference [data-tut-tab]").forEach((button,index) => {
+    button.onclick = () => selectTab(button.dataset.tutTab, "click");
+    button.onkeydown = event => {
+      const next = event.key === "ArrowRight" ? (index+1)%fields.length
+        : event.key === "ArrowLeft" ? (index+fields.length-1)%fields.length
+        : event.key === "Home" ? 0 : event.key === "End" ? fields.length-1 : null;
+      if(next === null) return;
+      event.preventDefault();
+      selectTab(fields[next].predicate, "keyboard");
+    };
+  });
   document.querySelectorAll("#tut-rule-reference [data-tut-value]").forEach(button => {
     button.onclick = () => {
       const family = button.dataset.tutFamily;
+      const isPractice = PAGES[state.page]?.id === "simple_practice";
+      if(family !== editor.simpleFamily || (!isPractice && PAGES[state.page]?.id !== "simple_tabs")) return;
       const value = button.dataset.tutValue;
-      const selected = new Set((state.simpleValues[family] || []).map(String));
+      const selected = new Set((editor.simpleValues[family] || []).map(String));
       if(selected.has(String(value))) selected.delete(String(value));
       else selected.add(String(value));
       const field = simpleTutorialField(family);
-      state.simpleValues[family] = field.values
+      editor.simpleValues[family] = field.values
         .filter(option => selected.has(String(option.id)))
         .map(option => option.id);
-      state.simplePracticeSolved = false;
+      if(isPractice) state.simplePracticeSolved = false;
       emit("tutorial_rule_value_toggled", {
         family,
         value,
         selected:selected.has(String(value)),
       });
-      resetCurrentScene();
+      if(isPractice) resetCurrentScene();
       renderReference("simple_builder");
       updateContinueState();
     };
@@ -1052,17 +1209,27 @@ const PRACTICE_TERMS = {
   ],
 };
 
-function updateContinueState(){
+function canContinueTutorial(){
   const page = PAGES[state.page];
   const requirement = page.requires;
-  el("tut-continue").disabled =
-    (page.id === "simple_overview" && state.overviewRevealStep < OVERVIEW_REVEAL_STEP_COUNT) ||
+  const reveal = currentProgressiveReveal();
+  return !(
+    (reveal && reveal.revealed < reveal.count) || state.timer !== null ||
     (requirement === "practice_solved" && !state.practiceSolved) ||
     (requirement === "movement_observed" && !state.simpleMovementObserved) ||
     (requirement === "collision_observed" && !state.simpleCollisionObserved) ||
-    (requirement === "simple_practice" && !state.simplePracticeSolved);
+    (requirement === "simple_practice" && !state.simplePracticeSolved)
+  );
+}
+
+function updateContinueState(){
+  const continueButton = el("tut-continue");
+  if(continueButton) continueButton.disabled = !canContinueTutorial();
   const run = el("tut-run");
-  if(run) run.disabled = false;
+  if(run) run.disabled = state.timer !== null;
+  el("tut-prev").disabled = state.timer !== null || !state.frames.length || state.frameIndex === 0;
+  el("tut-next-step").disabled = state.timer !== null || !state.frames.length || state.frameIndex === state.frames.length - 1;
+  renderProgressiveReveal();
 }
 
 function bindRulePractice(){
@@ -1229,15 +1396,50 @@ function bindLibraryPractice(){
   }
 }
 
+const MANAGER_NOTE_POINTS = [
+  "Robots involved in a conflict stop. The others keep moving.",
+  "Try a Run first to see where the problem is.",
+  "Your choices carry over to the next task. Keep them or change them.",
+  "Each Run starts all robots again. All must reach their bays in that Run.",
+];
+
+function managerNoteMarkup(){
+  return `<aside class="manager-notebook" aria-labelledby="manager-note-title">
+    <div class="manager-notebook-binding" aria-hidden="true">${Array.from({length:7}, () => "<i></i>").join("")}</div>
+    <div class="manager-notebook-cover" aria-hidden="true">
+      <div class="manager-cover-label"><span>WAREHOUSE</span><strong>Shift Notes</strong><small>From your predecessor</small></div>
+      <span class="manager-cover-seam"></span>
+    </div>
+    <div class="manager-notebook-turn" aria-hidden="true"></div>
+    <div class="manager-notebook-page">
+      <span class="manager-notebook-bookmark" aria-hidden="true"></span>
+      <p class="manager-note-from">A note from</p>
+      <h2 id="manager-note-title">The previous warehouse manager</h2>
+      <ol class="manager-note-list">
+        ${MANAGER_NOTE_POINTS.map(point => `<li aria-hidden="true">${point}</li>`).join("")}
+      </ol>
+    </div>
+  </aside>`;
+}
+
 function renderReference(kind){
   const host = el("tut-rule-reference");
   host.hidden = !kind;
-  host.classList.toggle("is-intro-guide", kind === "intro_guide");
+  host.classList.toggle("is-intro-guide", ["intro_guide", "matching", "features"].includes(kind));
   host.classList.toggle("is-overview", kind === "overview");
   if(!kind) return;
+  if(kind === "doc_matching"){
+    host.innerHTML = `<img class="tutorial-doc-figure doc-figure-1" src="${ASSET_PREFIX}assets/tutorial-doc/figure-1.png" alt="Robot 1 and charging bay 1 have the same blue color.">`;
+  }
+  if(kind === "manager_note") host.innerHTML = managerNoteMarkup();
   if(kind === "map") host.innerHTML = mapReferenceMarkup();
-  if(kind === "overview") host.innerHTML = simpleOverviewReferenceMarkup();
+  if(kind === "waiting") host.innerHTML = waitingReferenceMarkup();
+  if(kind === "overview"){
+    host.innerHTML = simpleOverviewReferenceMarkup();
+    bindSimpleRuleBuilder();
+  }
   if(kind === "intro_guide") host.innerHTML = simpleIntroReferenceMarkup();
+  if(kind === "matching" || kind === "features") host.innerHTML = simpleIntroReferenceMarkup(kind);
   if(kind === "simple_builder"){
     host.innerHTML = simpleRuleBuilderMarkup();
     bindSimpleRuleBuilder();
@@ -1265,94 +1467,148 @@ function renderReference(kind){
   }
 }
 
-function overviewRevealBlocks(){
-  const points = Array.from(el("tut-points")?.children || []);
-  return [
-    [el("tut-lead")],
-    [points[0]],
-    [points[1]],
-    [points[2], el("tut-rule-reference")],
-    [points[3]],
-    [points[4]],
-  ].map(block => block.filter(Boolean));
+function currentProgressiveReveal(){
+  if(tutorialMode !== "simple") return null;
+  const page = PAGES[state.page];
+  const textCount = 1 + page.points.length;
+  const count = page.reference === "manager_note"
+    ? Math.max(textCount, page.visualAfter + MANAGER_NOTE_POINTS.length)
+    : textCount;
+  return {id:page.id, count, textCount, limit:count, revealed:Math.min(state.storyRevealSteps[page.id] || 1, count)};
 }
 
-function renderOverviewReveal(){
-  const body = document.querySelector(".tut-body");
-  const isOverview = PAGES[state.page]?.id === "simple_overview";
-  body?.classList.toggle("is-progressive-overview", isOverview);
-  const nextButton = el("tut-continue");
+function progressiveRevealBlocks(){
+  const points = Array.from(el("tut-points")?.children || []);
+  return [el("tut-lead"), ...points].filter(Boolean).map(node => [node]);
+}
 
+function restoreDocumentLayout(){
+  if(tutorialMode !== "simple") return;
+  const panel = document.querySelector(".tut-panel");
+  // Restore movable visuals before replacing paragraphs that may contain them.
+  document.querySelector(".tut-body").append(panel);
+  panel.append(el("tut-visual"), el("tut-rule-reference"));
+  el("tut-visual").append(el("tut-controls"));
+  panel.hidden = false;
+}
+
+function renderDocumentLayout(page){
+  if(tutorialMode !== "simple") return;
+  document.querySelector(".tut-body").classList.toggle("has-story-visual", !!(page.scene || page.reference));
+  document.querySelector(".tut-panel").hidden = !(page.scene || page.reference);
+}
+
+function renderStoryPrompt(){
+  const reveal = currentProgressiveReveal();
   const oldPrompt = el("tut-overview-reveal-prompt");
-  if(!isOverview){
-    oldPrompt?.remove();
-    if(nextButton){
-      nextButton.hidden = false;
-      nextButton.classList.remove("is-overview-ready");
-    }
-    document.querySelectorAll(".overview-reveal-block").forEach(node => {
-      node.classList.remove("overview-reveal-block", "is-overview-visible");
-      node.removeAttribute("aria-hidden");
-    });
-    return;
-  }
+  if(!reveal){ oldPrompt?.remove(); return; }
+  const prompt = oldPrompt || document.createElement("p");
+  prompt.tabIndex = -1;
+  prompt.setAttribute("role", "status");
+  prompt.id = "tut-overview-reveal-prompt";
+  prompt.className = "tut-story-prompt";
+  const canReveal = state.timer === null && reveal.revealed < reveal.limit;
+  const ready = canContinueTutorial();
+  prompt.setAttribute("aria-disabled", String(!canReveal && !ready));
+  prompt.textContent = canReveal || ready
+    ? "Press Space to continue"
+      : state.timer !== null ? "Watch the robots..."
+        : PAGES[state.page].id === "simple_practice" ? "Get both robots home to continue"
+          : "Press Run to watch what happens";
+  if(!oldPrompt) el("tutorial-screen")?.querySelector(".onboarding-footer")?.appendChild(prompt);
+}
 
-  const blocks = overviewRevealBlocks();
-  const visual = el("tut-visual");
-  visual?.classList.remove("overview-reveal-block", "is-overview-visible");
-  visual?.removeAttribute("aria-hidden");
-  blocks.forEach((block, index) => {
-    const visible = index < state.overviewRevealStep;
-    block.forEach(node => {
+function renderProgressiveReveal(){
+  const reveal = currentProgressiveReveal();
+  const blocks = reveal ? progressiveRevealBlocks() : [];
+  const currentBlocks = new Set(blocks.flat());
+  document.body.classList.toggle("linear-tutorial", !!reveal);
+  document.body.classList.toggle("document-tutorial", !!reveal);
+  document.body.classList.toggle("viewport-tutorial", !!reveal);
+  document.querySelector(".tut-body")?.classList.toggle("is-progressive-overview", !!reveal);
+  const continueButton = el("tut-continue");
+  if(continueButton) continueButton.hidden = !!reveal;
+  document.querySelectorAll(".overview-reveal-block").forEach(node => {
+    if(currentBlocks.has(node)) return;
+    node.classList.remove("overview-reveal-block", "is-overview-visible");
+    node.removeAttribute("aria-hidden");
+  });
+  if(reveal){
+    blocks.forEach((block, index) => block.forEach(node => {
+      const visible = index === 0 || index === Math.min(reveal.revealed, reveal.textCount) - 1;
       node.classList.add("overview-reveal-block");
       node.classList.toggle("is-overview-visible", visible);
       node.setAttribute("aria-hidden", String(!visible));
-    });
+    }));
+    const page = PAGES[state.page];
+    document.querySelector(".tut-panel").hidden = !(page.scene || page.reference) || reveal.revealed <= (page.visualAfter || 0);
+    if(page.reference === "manager_note"){
+      document.querySelector(".tut-body").classList.toggle("has-story-visual", reveal.revealed > page.visualAfter);
+      document.querySelectorAll(".manager-note-list li").forEach((node, index) => {
+        const visible = index < reveal.revealed - page.visualAfter;
+        node.classList.toggle("is-note-visible", visible);
+        node.setAttribute("aria-hidden", String(!visible));
+      });
+    }
+    el("tut-controls").hidden = !page.scene || !page.controls || reveal.revealed <= (page.controlsAfter || 0);
+    el("tut-back").disabled = state.page === 0 && reveal.revealed === 1;
+  }
+  renderStoryPrompt();
+  if(reveal) window.TutorialEmphasis?.render({
+    pageId:reveal.id, blocks, revealed:reveal.revealed,
   });
-
-  const copy = document.querySelector(".tut-copy");
-  const prompt = oldPrompt || document.createElement("p");
-  prompt.id = "tut-overview-reveal-prompt";
-  prompt.className = "tut-overview-reveal-prompt";
-  prompt.setAttribute("aria-live", "polite");
-  if(state.overviewRevealStep < OVERVIEW_REVEAL_STEP_COUNT){
-    prompt.hidden = false;
-    prompt.textContent = "Press the space bar to reveal each step";
-    prompt.classList.toggle("is-muted", state.overviewRevealStep > 0);
-  }else{
-    prompt.textContent = "";
-    prompt.hidden = true;
-  }
-  if(!oldPrompt) copy?.appendChild(prompt);
-
-  if(nextButton){
-    const ready = state.overviewRevealStep >= OVERVIEW_REVEAL_STEP_COUNT;
-    nextButton.hidden = !ready;
-    nextButton.classList.toggle("is-overview-ready", ready);
-  }
 }
 
-function revealNextOverviewBlock(){
-  if(PAGES[state.page]?.id !== "simple_overview") return false;
-  if(state.overviewRevealStep >= OVERVIEW_REVEAL_STEP_COUNT) return false;
-  state.overviewRevealStep += 1;
-  renderOverviewReveal();
+function revealNextBlock(trigger){
+  const reveal = currentProgressiveReveal();
+  if(!reveal || state.timer !== null || reveal.revealed >= reveal.limit) return false;
+  state.storyRevealSteps[reveal.id] = reveal.revealed + 1;
+  renderProgressiveReveal();
   updateContinueState();
-  emit("tutorial_overview_block_revealed", {
-    reveal_step:state.overviewRevealStep,
-    reveal_step_count:OVERVIEW_REVEAL_STEP_COUNT,
+  const page = PAGES[state.page];
+  if(page.scene && !document.querySelector(".tut-panel").hidden){
+    drawBoard(el("tut-board"), page.scene, state.frames[state.frameIndex] || null);
+  }
+  emit("tutorial_story_block_revealed", {
+    tutorial_page:reveal.id,
+    reveal_step:state.storyRevealSteps[reveal.id],
+    reveal_step_count:reveal.count,
+    reveal_trigger:trigger,
   });
   return true;
 }
 
+function advanceStory(trigger){
+  const screen = el("tutorial-screen");
+  if(tutorialMode !== "simple" || !screen || screen.hidden) return false;
+  if(revealNextBlock(trigger)) return true;
+  if(!canContinueTutorial()) return false;
+  emit("tutorial_story_advanced", {tutorial_page:PAGES[state.page].id, trigger});
+  if(state.page === PAGES.length - 1) completeTutorial();
+  else renderPage(state.page + 1);
+  return true;
+}
+
 function handleTutorialKeydown(event){
-  if(event.code !== "Space" || event.repeat) return;
-  if(el("tutorial-screen")?.hidden) return;
-  if(PAGES[state.page]?.id !== "simple_overview") return;
-  if(state.overviewRevealStep >= OVERVIEW_REVEAL_STEP_COUNT) return;
+  if(tutorialMode !== "simple" || el("tutorial-screen")?.hidden || event.key !== " ") return;
+  if(event.ctrlKey || event.metaKey || event.altKey) return;
+  if(event.target?.closest?.("input, textarea, select, [contenteditable=true]")) return;
+  // Space advances the story, never activates a focused Run, tab or Back button.
   event.preventDefault();
   event.stopPropagation();
-  revealNextOverviewBlock();
+  if(!event.repeat) advanceStory("space");
+}
+
+function goBackTutorial(){
+  const reveal = currentProgressiveReveal();
+  if(reveal?.revealed > 1){
+    state.storyRevealSteps[reveal.id] = reveal.revealed - 1;
+    updateContinueState();
+    emit("tutorial_story_back", {tutorial_page:reveal.id, reveal_step:reveal.revealed - 1});
+    el("tut-overview-reveal-prompt")?.focus({preventScroll:true});
+  }else{
+    renderPage(state.page - 1);
+  }
 }
 
 function recordPageVisit(){
@@ -1421,8 +1677,8 @@ function beginInteractiveTutorial(){
   }
   screen.hidden = false;
   emit("interactive_tutorial_started", {page_count:PAGES.length});
-  renderPage(0);
-  el("tut-continue").focus();
+  renderPage(state.page);
+  (tutorialMode === "simple" ? el("tut-overview-reveal-prompt") : el("tut-continue"))?.focus({preventScroll:true});
 }
 
 function openInstructions(review=false){
@@ -1475,10 +1731,23 @@ function showEthicsScreen(){
 
 function renderPage(index){
   recordPageVisit();
+  const previousPage = PAGES[state.page];
+  if(tutorialMode === "simple" && previousPage.scene && state.result && state.timer === null){
+    state.storySceneViews[previousPage.id] = {
+      result:structuredClone(state.result), frameIndex:state.frameIndex,
+    };
+  }
   stopAnimation();
   state.page = Math.max(0, Math.min(index, PAGES.length - 1));
   state.pageStartedAt = Date.now();
   const page = PAGES[state.page];
+  restoreDocumentLayout();
+  if(tutorialMode === "simple") el("tutorial-screen").dataset.storyPage = page.id;
+  if(page.id === "simple_practice") state.simpleFamily = "role";
+  if(page.id === "simple_practice" && state.simpleValues.move_dir.length){
+    state.simpleValues.move_dir = [];
+    state.simplePracticeSolved = false;
+  }
 
   el("tut-title").textContent = page.title;
   el("tut-lead").textContent = page.lead;
@@ -1488,7 +1757,7 @@ function renderPage(index){
   const visual = el("tut-visual");
   const ruleReference = el("tut-rule-reference");
   const isRulePractice = page.id === "rules" || page.id === "library" ||
-    page.id === "simple_practice";
+    page.id === "simple_practice" || page.id === "simple_features";
   document.querySelector(".tut-panel")?.classList.toggle(
     "has-rule-practice",
     isRulePractice,
@@ -1513,17 +1782,31 @@ function renderPage(index){
   }
   ruleReference.hidden = !page.reference;
   el("tut-controls").hidden = !page.scene || !page.controls;
+  renderReference(page.reference);
+  renderDocumentLayout(page);
 
   if(page.scene){
-    resetCurrentScene();
+    const savedView = state.storySceneViews[page.id];
+    if(savedView){
+      state.result = structuredClone(savedView.result);
+      state.frames = state.result.frames || [];
+      showFrame(savedView.frameIndex, false, "page-return");
+    }else{
+      resetCurrentScene();
+    }
+  }else{
+    state.result = null;
+    state.frames = [];
+    state.frameIndex = 0;
   }
-  renderReference(page.reference);
-  renderOverviewReveal();
+  renderProgressiveReveal();
 
   el("tut-progress-label").textContent = `${state.page + 1} of ${PAGES.length}`;
   el("tut-progress-bar").style.width = `${((state.page + 1) / PAGES.length) * 100}%`;
-  el("tut-back").disabled = state.page === 0;
-  el("tut-continue").textContent = state.page === PAGES.length - 1 ? "Continue" : "Next";
+  const backButton = el("tut-back");
+  if(backButton) backButton.disabled = state.page === 0;
+  const continueButton = el("tut-continue");
+  if(continueButton) continueButton.textContent = state.page === PAGES.length - 1 ? "Continue" : "Next";
   updateContinueState();
   el("tut-dots").innerHTML = PAGES.map((row, pageIndex) => {
     const className = pageIndex === state.page ? "is-active" : pageIndex < state.page ? "is-complete" : "";
@@ -1534,9 +1817,15 @@ function renderPage(index){
     tutorial_page:page.id,
     tutorial_page_index:state.page,
   });
+  if(tutorialMode === "simple"){
+    el("tutorial-screen").dataset.storyPage = page.id;
+    const focusTarget = el("tut-overview-reveal-prompt");
+    focusTarget?.focus({preventScroll:true});
+  }
 }
 
 function completeTutorial(){
+  if(tutorialMode === "simple" && (!state.simplePracticeSolved || !state.simpleMovementObserved || !state.simpleCollisionObserved)) return;
   recordPageVisit();
   stopAnimation();
   window.tutorialReport = {
@@ -1561,6 +1850,7 @@ function completeTutorial(){
   emit("tutorial_completed", {
     duration_ms:window.tutorialReport.duration_ms,
     run_count:state.runs.length,
+    practice_protocol:tutorialMode === "simple" ? SIMPLE_PRACTICE_PROTOCOL : null,
   });
   if(standaloneStage === "tutorial"){
     finish();
@@ -1590,6 +1880,7 @@ function resetComprehension(){
   el("comprehension-retry").hidden = true;
   el("comprehension-start").hidden = true;
   updateComprehensionState();
+  window.StudyData?.saveCheckpoint("comprehension", {attempt:comprehensionAttempt, responses:{}, result:null});
   el("comprehension-form").querySelector("input")?.focus();
 }
 
@@ -1599,13 +1890,13 @@ function configureConditionQuestion(){
         a:"Every robot on the map stops.",
         b:"All robots immediately reach their charging bays.",
         c:"The robots in the conflict stop, while other robots keep moving.",
-        d:"The waiting rule is deleted.",
+        d:"Your choices are cleared.",
       }
     : {
         a:"Only the two robots in the conflict stop; all others keep moving.",
         b:"All robots immediately reach their charging bays.",
         c:"Every robot on the map stops.",
-        d:"The waiting rule is deleted.",
+        d:"Your choices are cleared.",
       };
   Object.entries(options).forEach(([key, copy]) => {
     const target = el(`comprehension-condition-${key}`);
@@ -1623,7 +1914,18 @@ function showComprehension(){
     return;
   }
   configureConditionQuestion();
+  const saved = window.StudyData?.checkpoint("comprehension");
   resetComprehension();
+  if(saved){
+    comprehensionAttempt = saved.attempt || 0;
+    for(const [name, value] of Object.entries(saved.responses || {})){
+      const input = el("comprehension-form").querySelector(`input[name="${name}"][value="${value}"]`);
+      if(input) input.checked = true;
+    }
+    updateComprehensionState();
+    if(saved.result) showComprehensionResult(saved.result.passed);
+    window.StudyData?.saveCheckpoint("comprehension", saved);
+  }
   screen.hidden = false;
   emit("comprehension_opened", {question_count:Object.keys(COMPREHENSION_ANSWERS).length});
   window.scrollTo(0, 0);
@@ -1643,7 +1945,11 @@ function checkComprehension(){
   };
   window.tutorialReport?.comprehension_attempts.push(record);
   emit("comprehension_submitted", record);
+  window.StudyData?.saveCheckpoint("comprehension", {attempt:comprehensionAttempt, responses, result:record});
+  showComprehensionResult(passed);
+}
 
+function showComprehensionResult(passed){
   el("comprehension-questions").hidden = true;
   el("comprehension-result").hidden = false;
   el("comprehension-result-title").textContent = passed ? "You are ready" : "Please try again";
@@ -1671,15 +1977,18 @@ function bind(){
   on("tut-run", runCurrentScene);
   on("tut-reset", () => resetCurrentScene("manual"));
   on("tut-prev", () => {
+    if(state.timer !== null) return;
     stopAnimation();
     showFrame(state.frameIndex - 1, true, "manual");
   });
   on("tut-next-step", () => {
+    if(state.timer !== null) return;
     stopAnimation();
     showFrame(state.frameIndex + 1, true, "manual");
   });
-  on("tut-back", () => renderPage(state.page - 1));
+  on("tut-back", goBackTutorial);
   on("tut-continue", () => {
+    if(!canContinueTutorial()) return;
     if(state.page === PAGES.length - 1) completeTutorial();
     else renderPage(state.page + 1);
   });
@@ -1731,7 +2040,16 @@ function startTutorial(options={}, mode="standard"){
     tutorialMode = mode;
     standaloneStage = options.standaloneStage || null;
     PAGES = mode === "simple" ? SIMPLE_PAGES : DEFAULT_PAGES;
-    emit = options.log || (() => {});
+    emit = (type, detail) => {
+      options.log?.(type, {...detail, tutorial_story_protocol:mode === "simple" ? STORY_PROTOCOL : null});
+      if(standaloneStage === "tutorial"){
+        const {timer, result, frames, ...saved} = state;
+        window.StudyData?.saveCheckpoint("tutorial", saved);
+      }
+      if(standaloneStage === "comprehension" && type === "comprehension_option_selected"){
+        window.StudyData?.saveCheckpoint("comprehension", {attempt:comprehensionAttempt, responses:comprehensionResponses(), result:null});
+      }
+    };
     finish = options.onComplete || (() => {});
     state.startedAt = Date.now();
     state.pageStartedAt = 0;
@@ -1745,8 +2063,29 @@ function startTutorial(options={}, mode="standard"){
     state.simpleCollisionObserved = false;
     state.simpleMovementObserved = false;
     state.simpleValues = {move_dir:[], role:[]};
+    state.simpleFamily = "role";
+    state.simpleFeatureDemo = {simpleFamily:"role", simpleValues:{move_dir:[], role:[]}};
+    state.ruleEditorProtocol = window.STUDY_CONFIG?.rule_editor_protocol;
     state.simplePracticeSolved = false;
+    state.simplePracticeSceneId = SIMPLE_PRACTICE_SCENE.id;
     state.overviewRevealStep = 0;
+    state.featuresRevealStep = 0;
+    state.storyProtocol = STORY_PROTOCOL;
+    state.storyRevealSteps = {};
+    state.storySceneViews = {};
+    state.page = 0;
+    if(standaloneStage === "tutorial"){
+      const saved = window.StudyData?.checkpoint("tutorial");
+      if(saved && saved.storyProtocol === STORY_PROTOCOL && saved.ruleEditorProtocol === state.ruleEditorProtocol &&
+        ["move_dir", "role"].includes(saved.simpleFamily) &&
+        Number.isInteger(saved.page) && PAGES[saved.page]) Object.assign(state, saved);
+      if(state.simplePracticeSceneId !== SIMPLE_PRACTICE_SCENE.id){
+        state.simplePracticeSolved = false;
+        state.simplePracticeSceneId = SIMPLE_PRACTICE_SCENE.id;
+      }
+    }
+    state.simpleFamily = "role";
+    state.simpleValues.move_dir = [];
     comprehensionAttempt = 0;
     consentScrollDepths.clear();
     bind();
@@ -1757,6 +2096,7 @@ function startTutorial(options={}, mode="standard"){
       page_count:PAGES.length,
       tutorial_mode:tutorialMode,
       continuation_condition:CONTINUATION_CONDITION,
+      practice_protocol:tutorialMode === "simple" ? SIMPLE_PRACTICE_PROTOCOL : null,
     });
     if(mode !== "simple"){
       beginInteractiveTutorial();

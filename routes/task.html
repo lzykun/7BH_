@@ -6,7 +6,7 @@
   <title>Coordination Rules</title>
   <link rel="icon" href="data:,">
   <meta name="study-data-endpoint" content="../record_result.php">
-  <link rel="stylesheet" href="../styles.css?v=7bh-formal-v15">
+  <link rel="stylesheet" href="../styles.css?v=7bh-formal-v23">
   <link rel="stylesheet" href="../shuffle-controls.css">
 </head>
 <body data-stage="task" data-asset-prefix="../">
@@ -106,11 +106,13 @@
   </section>
 </div>
 
+<dialog class="task-success-dialog" id="task-success-dialog" aria-label="Success"></dialog>
+
 <div class="task-complete-backdrop" id="task-complete-backdrop" hidden>
   <section class="task-complete-dialog" role="dialog" aria-modal="true" aria-labelledby="task-complete-title" aria-describedby="task-complete-message">
     <p class="onboarding-kicker">Tasks complete</p>
-    <h2 id="task-complete-title">Congratulations!</h2>
-    <p id="task-complete-message">You have completed all 11 tasks.</p>
+    <h2 id="task-complete-title">All tasks complete</h2>
+    <p id="task-complete-message">You have completed all the tasks.</p>
     <p class="task-complete-save-status" id="task-complete-save-status" role="status" aria-live="polite">Saving your responses...</p>
     <div class="task-complete-actions">
       <button class="btn" id="task-complete-retry" type="button" hidden>Retry saving</button>
@@ -118,12 +120,13 @@
     </div>
   </section>
 </div>
-<script src="../shared-pool.js?v=7bh-formal-v15"></script>
-<script src="../data-collector.js?v=7bh-formal-v15"></script>
-<script src="../shuffle-bootstrap.js?v=7bh-formal-v15"></script>
-<script src="../engine.js?v=7bh-formal-v15"></script>
-<script src="../study_feedback.js?v=7bh-formal-v15"></script>
-<script src="../shuffle-controls.js?v=7bh-formal-v15"></script>
-<script src="../app.js?v=7bh-formal-v15"></script>
+<script src="../shared-pool.js?v=7bh-formal-v23"></script>
+<script src="../study-config.js?v=7bh-formal-v23"></script>
+<script src="../data-collector.js?v=7bh-formal-v23"></script>
+<script src="../shuffle-bootstrap.js?v=7bh-formal-v23"></script>
+<script src="../engine.js?v=7bh-formal-v23"></script>
+<script src="../study_feedback.js?v=7bh-formal-v23"></script>
+<script src="../shuffle-controls.js?v=7bh-formal-v23"></script>
+<script src="../app.js?v=7bh-formal-v23"></script>
 </body>
 </html>

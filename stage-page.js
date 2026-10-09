@@ -1,5 +1,5 @@
 /* Controller for one standalone onboarding page. */
-(function(){
+(async function(){
 "use strict";
 
 const stage = document.body.dataset.stage;
@@ -20,7 +20,7 @@ function completeStage(){
   if(destination) window.StudyData.navigate(destination);
 }
 
-window.StudyData?.init({stage:stage});
+if(!await window.StudyData?.ready || !window.StudyData.init({stage:stage})) return;
 
 if(!window.ResearchTutorial?.startSimpleStage){
   document.body.textContent = "The study could not load. Please refresh the page.";
@@ -31,6 +31,7 @@ if(!window.ResearchTutorial?.startSimpleStage){
 if(stage === "tutorial"){
   window.ResearchTutorial.startSimple({
     startAt:"tutorial",
+    standaloneStage:"tutorial",
     log:log,
     onComplete:completeStage,
   });

@@ -1,49 +1,85 @@
 # Study data collection
 
-Each participant receives one stable random study code (`session`) and one formal assignment:
+## Release and assignment
 
-- `all-local`
-- `jump-2` (`early-jump`)
-- `jump-5` (`late-jump`)
+Current release: `7bh-formal-v23`, deployment `7bh-eleven-type-jump-v23`.
+Formal sessions enter through `index.html` on Bococo. Server-side randomized
+blocks of three assign `all-local`, `jump-2` (Early jump), or `jump-5` (Late jump).
+Re-entry with the same recruitment identifier restores the same assignment.
+Balanced assignments do not guarantee balanced completed samples.
 
-Formal assignment uses randomized blocks of three on the server. Each newly opened block contains one `all-local`, one `jump-2`, and one `jump-5` assignment in random order. Therefore assigned counts are equal after every complete block and differ by at most one while a block is filling. The assignment is stored against a one-way hash of the participant identifier, then carried in the URL and browser across all standalone pages. `jump-4` remains available only in researcher preview mode.
+The conditions share T1-T5, followed by these permutations of one task bank:
 
-The formal recruitment link must enter through `index.html`; direct links to later pages bypass the server allocator. The allocator uses the recruitment identifier only to create a one-way assignment key, then removes that identifier from the study URL. It is not written to the behavioural event stream. Local `file://` previews use a client-side random fallback because PHP is unavailable. Attrition can still unbalance the final valid sample, so recruitment should continue until every arm reaches the same preregistered number of valid participants.
+| Condition | Remaining tasks | Critical trial |
+| --- | --- | --- |
+| All-local | A, B, C, D, E, F | None |
+| Early jump | F, E, D, C, B, A | T6 |
+| Late jump | B, C, D, E, F, A | T11 |
 
-## Event stream
+The critical repair is in Type, not Movement. Type-only tutorial practice carries
+D into T1. Type and Movement selections are retained separately, but only the
+active tab contributes to a Run. Switching tabs and editing values are distinct
+events. A tab switch does not by itself establish a tested strategy shift.
 
-`data-collector.js` stores one ordered event stream for the complete session. Every event includes:
+## Event stream and completion
 
-- the random study code;
-- condition, schedule, stage, page, trial, task, attempt, and rule revision;
-- absolute time, time since the session began, and time on the current page;
-- an event-specific `detail` object.
+`data-collector.js` records ordered events with a random study session code,
+version, deployment ID, material hash, condition, stage, trial, item, attempt,
+timestamps and event-specific detail. Recruitment identifiers are removed from
+navigation and are not part of the behavioral stream. Assignment tokens are
+kept in browser storage rather than displayed URLs.
 
-The stream includes consent progress, tutorial navigation, comprehension responses, UI actions, every rule edit, every Run, every displayed simulation frame, task transitions, debrief responses, focus/visibility changes, and study completion.
+The stream covers consent, tutorial, comprehension, rule edits, family switches,
+Runs, replay frames, task transitions, questionnaire submission and completion.
+Every `run_completed` records the active family, both rule masks, trial-start
+rule, edit counts, family-switch counts, outcome and timing. Rule drafts in the
+inactive tab are not executed. The inherited tutorial rule is initialization,
+not a participant edit.
 
-The final questionnaire is kept as a local draft until submission. Its explicit `debrief_responses_submitted` event contains age, gender, engagement, difficulty, the participant's reported feature use, and optional strategy/feedback text. The study explanation is revealed only after the upload is acknowledged, so it cannot shape those retrospective answers. If an upload fails, the participant remains on the page and can retry. The completion page enables the Prolific return control only after the final event queue is confirmed saved.
+`completion_protocol: full-map-single-run-v1` means that every Run restarts all
+robots. Robots outside a conflict may continue within that Run, but successful
+robots are not carried into the next Run. Passing requires the current rule to
+solve the whole task from its initial state. Earlier cumulative-completion
+cohorts must not be interpreted using this criterion without replay validation.
 
-## Persistence
+`task_sequence_completed` means all eleven tasks were passed. It is distinct
+from `debrief_responses_submitted` and `study_completed`. The completion code is
+shown only after the questionnaire and final event queue have been acknowledged
+by the server. An unsuccessful upload remains retryable. The questionnaire
+contains age, gender, engagement, difficulty, reported feature use and optional
+strategy text; generic UI events do not contain questionnaire field values.
 
-During local `file://` preview, events are retained in browser storage and can be downloaded as JSON, JSONL, or CSV from the completion page.
+## Private storage and recovery
 
-When the interface is served over HTTP(S), `assign_condition.php` manages the locked block-randomization state and the collector posts pending events to `record_result.php`. Failed uploads are retried up to three times, and large queues are split into bounded batches. The server endpoint validates the origin, content type, payload, session code, and event structure before appending de-duplicated events.
+Production v23 uses `STUDY_DATA_ROOT=/home/bococo81/server_data/7BH/v23`, outside
+`public_html`, with separate `events/`, `consent/`, `assignment/` and `locks/`
+directories. Earlier versions retain their own records. Directories use mode
+`0700`; record files use `0600`.
 
-No participant records are written inside `public_html`. The deployment uses three private locations:
+IndexedDB and browser checkpoints preserve queued events, selections, progress
+and replay after reload. A same-session tab lock prevents conflicting writers.
+The receiver validates origin, assignment token, version, event continuity and
+workflow order. Identical retries are deduplicated. A queued beacon is not an
+upload acknowledgement. Browser-generated outcomes still require replay checks
+for independent validation.
 
-- `/home/bococo81/server_data/7BH/events/` for tutorial, comprehension, task, debrief, and completion events;
-- `/home/bococo81/server_data/7BH/consent/` for consent-stage events;
-- `/home/bococo81/server_data/7BH/assignment/` for the hashed condition-allocation state.
+GitHub Pages and `preview=1` are non-recording previews: they do not use the
+formal PHP endpoints. The Pages workflow publishes only static assets. No
+participant data, allocation state, private analysis, server secrets or QA
+access configuration belongs in this repository.
 
-Files are created with mode `0600`; the private directories must be created before recruitment and must not be included in web deployment or deletion commands.
+## Server deployment requirements
 
-## Formal deployment check
+Configure the private, version-specific `STUDY_DATA_ROOT` explicitly; do not use
+the receiver's historical fallback for a new deployment. Configure
+`STUDY_ALLOWED_ORIGIN` when using a different host. Deny direct HTTP access to
+`server-common.php`, disable directory listings and keep server configuration
+private. The production `.htaccess` is intentionally not distributed here.
 
-Before recruitment, verify all of the following on the deployed host:
-
-1. A full session follows `routes/consent.html` -> `routes/reminder.html` -> `routes/tutorial.html` -> `routes/comprehension.html` -> `routes/task.html`; it then shows the congratulations dialog, reaches `routes/debrief.html`, and finally `routes/completion.html`.
-2. Consent and response JSONL files are created in their separate private directories.
-3. The response file contains tutorial, comprehension, task, debrief, and completion events.
-4. Event indexes are ordered and duplicate event IDs are absent across repeated uploads.
-5. Reloading a page preserves the same study code and assignment.
-6. Each formal participant is assigned only to `all-local`, `jump-2`, or `jump-5`.
+Before recruitment, verify consent, tutorial carry-over, comprehension, all
+eleven tasks, questionnaire and acknowledged completion in each condition.
+Test rejected requests, retry deduplication and recovery with an isolated QA
+data directory, then read back the stored events. Never run these QA sessions
+against participant storage. Replacing an active production receiver requires
+an explicit deployment decision; pushing this repository does not deploy to
+Bococo or change its participant data.

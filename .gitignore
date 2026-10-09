@@ -16,9 +16,13 @@ assignment-state.json
 db_config.php
 *.pem
 *.key
+.htaccess
+private-analysis/
+audit/
+audit-test/
 
 # Local visual QA artifacts.
 local-result.png
 task-*.png
 test-*.png
-
+_site/

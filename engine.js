@@ -866,6 +866,7 @@ function simulateLocalContinuation(scn, rules, completedIds=new Set()){
   for(let frameIndex = 0; frameIndex < frameCount; frameIndex += 1){
     const pos = {};
     const agents = {};
+    const failureEvents = [];
 
     encounterRuns.forEach(row => {
       if(row.alreadyComplete){
@@ -882,6 +883,10 @@ function simulateLocalContinuation(scn, rules, completedIds=new Set()){
 
       const sourceFrames = row.result.frames || [];
       const source = sourceFrames[Math.min(frameIndex, sourceFrames.length - 1)];
+      // A stopped encounter keeps its marker while the other robots continue.
+      if(!row.result.ok && frameIndex >= sourceFrames.length - 1 && source?.event){
+        failureEvents.push(source.event);
+      }
       row.agents.forEach(agent => {
         const id = String(agent.id);
         pos[id] = (source?.pos?.[id] || source?.pos?.[agent.id] || agent.pos).slice();
@@ -893,11 +898,7 @@ function simulateLocalContinuation(scn, rules, completedIds=new Set()){
       });
     });
 
-    const finalFrame = frameIndex === frameCount - 1;
-    const failureEvent = finalFrame
-      ? failedRuns[0]?.result?.frames?.at(-1)?.event || null
-      : null;
-    frames.push({pos, agents, event:failureEvent, tick:frameIndex});
+    frames.push({pos, agents, event:failureEvents[0] || null, failureEvents, tick:frameIndex});
   }
 
   const firstFailure = failedRuns[0]?.result || null;

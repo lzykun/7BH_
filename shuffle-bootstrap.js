@@ -74,7 +74,7 @@
   const inspect = preview && p.get('mode') === 'inspect';
   const requested = Number(p.get('trial'));
   const startIndex = inspect && Number.isInteger(requested)
-    ? Math.max(0, Math.min(10, requested - 1)) : 0;
+    ? Math.max(0, Math.min(pool.sequences[schedule].materials.length - 1, requested - 1)) : 0;
   const continuation = 'local';
   const taskPage = inferredStage === 'task';
 
@@ -121,10 +121,10 @@
       ...task,
       label:`T${index + 1}`,
       level:index + 1,
-      measure:{phase:index < 5 ? 'expansion' : 'shuffle', index:index + 1},
-      starter_rulebook:pool.vocabulary.movement
+      measure:{phase:index < pool.prefix_length ? 'expansion' : 'shuffle', index:index + 1},
+      starter_rulebook:inspect ? pool.vocabulary.role
         .filter((_, bit) => sequence.reference[index].carried_mask & (1 << bit))
-        .map(v => ({conds:[{p:'move_dir', v, negated:false}]})),
+        .map(v => ({conds:[{p:'role', v, negated:false}]})) : [],
     };
   }
 
@@ -153,38 +153,7 @@
     assignment:window.EXPERIMENT_ASSIGNMENT,
   };
 
-  function mountTestConditionSwitcher(){
-    if(location.hostname === '555bighamsome.github.io') return;
-    if(!(preview || location.protocol === 'file:') || document.querySelector('.test-condition-switcher')) return;
-    const switcher = document.createElement('aside');
-    switcher.className = 'test-condition-switcher';
-    switcher.setAttribute('aria-label', 'Test condition');
-    switcher.innerHTML = `
-      <span>Test condition</span>
-      <div role="group" aria-label="Choose a condition">
-        ${formalSchedules.map(value => `
-          <button type="button" data-test-schedule="${value}"${value === schedule ? ' aria-pressed="true" class="is-active"' : ' aria-pressed="false"'}>
-            ${{'all-local':'All-local','jump-2':'Early jump','jump-5':'Late jump'}[value]}
-          </button>
-        `).join('')}
-      </div>
-    `;
-    switcher.querySelectorAll('[data-test-schedule]').forEach(button => {
-      button.addEventListener('click', () => {
-        const nextSchedule = button.dataset.testSchedule;
-        if(nextSchedule === schedule) return;
-        const next = new URL(location.href);
-        next.searchParams.set('preview', '1');
-        next.searchParams.set('schedule', nextSchedule);
-        next.searchParams.set('assigned_condition', nextSchedule);
-        next.searchParams.set('assignment_arm', armLabels[nextSchedule]);
-        next.searchParams.set('assignment_source', 'researcher-preview');
-        next.searchParams.set('v', pool.version);
-        location.assign(next.href);
-      });
-    });
-    document.body.appendChild(switcher);
-  }
+  function mountTestConditionSwitcher(){}
 
   if(document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', mountTestConditionSwitcher, {once:true});

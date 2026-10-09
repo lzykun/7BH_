@@ -1,9 +1,9 @@
 /* Pre-study setup reminder. */
-(function(){
+(async function(){
 "use strict";
 
 const data = window.StudyData;
-data?.init({stage:"reminder"});
+if(!await data?.ready || !data.init({stage:"reminder"})) return;
 
 document.getElementById("reminder-continue")?.addEventListener("click", async event => {
   const button = event.currentTarget;
