@@ -802,11 +802,6 @@ function switchTask(index){
 function buildTabs(){
   const tabs = $("tabs");
   tabs.innerHTML = "";
-  if(taskMode === "tutorial"){
-    const caseSummary = $("case-summary");
-    if(caseSummary) caseSummary.textContent = "";
-    return;
-  }
   TASKS.forEach((task, index) => {
     const state = shiftStates[task.id];
     const locked = !taskUnlocked(task);

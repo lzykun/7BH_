@@ -8,6 +8,7 @@
   <meta name="study-data-endpoint" content="../record_result.php">
   <link rel="stylesheet" href="../styles.css?v=7bh-formal-v23">
   <link rel="stylesheet" href="../shuffle-controls.css">
+  <link rel="stylesheet" href="../guided-tutorial/guided.css?v=7bh-formal-v23">
 </head>
 <body data-stage="task" data-asset-prefix="../">
 <div class="task-viewport" id="task-viewport">
@@ -83,8 +84,78 @@
     </section>
 
   </div>
+  <div class="guided-layer" id="guided-layer" hidden>
+    <svg class="guided-spot" id="guided-spot" aria-hidden="true"></svg>
+    <div class="guided-bubble" id="guided-bubble" role="dialog" aria-live="polite" aria-labelledby="guided-message">
+      <div class="guided-who">
+        <svg class="guided-bot" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 3h8v2h2v7H6V5h2V3ZM5 12h14v9H5v-9Z"/><circle cx="10" cy="8" r="1" fill="#202020"/><circle cx="14" cy="8" r="1" fill="#202020"/><path d="M9 16h6M9 18h6" stroke="#fff" stroke-width="1.4"/></svg>
+        <div><div class="guided-msg" id="guided-message"></div><div class="guided-wait" id="guided-wait" hidden></div></div>
+      </div>
+      <div class="guided-nav">
+        <button class="guided-back" id="guided-back" type="button">← Back</button>
+        <span class="guided-count" id="guided-count"></span>
+        <button class="guided-next" id="guided-next" type="button">Next →</button>
+      </div>
+    </div>
+  </div>
 </div>
 </div>
+</div>
+
+<div class="guided-config-error" id="guided-config-error" role="alert" hidden></div>
+
+<div class="guided-comprehension-backdrop" id="guided-comprehension" hidden>
+  <main class="comprehension-page guided-comprehension-dialog" role="dialog" aria-modal="true" aria-labelledby="comprehension-title">
+    <section id="comprehension-questions">
+      <h1 id="comprehension-title">Comprehension Questions</h1>
+      <form class="comprehension-form comprehension-frame" id="comprehension-form">
+      <fieldset class="comprehension-question">
+        <legend>1. What completes a task?</legend>
+        <label class="comprehension-option"><input type="radio" name="check1" value="a"><span>One robot reaches any charging bay.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check1" value="b"><span>Every robot reaches the charging bay with the same number in the same Run.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check1" value="c"><span>You press Run once.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check1" value="d"><span>Every robot waits at least once.</span></label>
+      </fieldset>
+
+      <fieldset class="comprehension-question">
+        <legend id="comprehension-condition-question">2. What happens if two robots conflict?</legend>
+        <label class="comprehension-option"><input type="radio" name="check2" value="a"><span id="comprehension-condition-a"></span></label>
+        <label class="comprehension-option"><input type="radio" name="check2" value="b"><span id="comprehension-condition-b"></span></label>
+        <label class="comprehension-option"><input type="radio" name="check2" value="c"><span id="comprehension-condition-c"></span></label>
+        <label class="comprehension-option"><input type="radio" name="check2" value="d"><span id="comprehension-condition-d"></span></label>
+      </fieldset>
+
+      <fieldset class="comprehension-question">
+        <legend>3. Which features can your waiting rule use?</legend>
+        <label class="comprehension-option"><input type="radio" name="check3" value="a"><span>Either Movement direction or Robot type, one at a time.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check3" value="b"><span>Movement direction and Robot type together in the same rule.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check3" value="c"><span>Distance to the charging bay only.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check3" value="d"><span>The order in which robots appear on the map.</span></label>
+      </fieldset>
+
+      <fieldset class="comprehension-question">
+        <legend>4. What happens to your waiting rule when the next task starts?</legend>
+        <label class="comprehension-option"><input type="radio" name="check4" value="a"><span>It is deleted.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check4" value="b"><span>It is changed at random.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check4" value="c"><span>It can no longer be edited.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check4" value="d"><span>It stays selected and can still be edited.</span></label>
+      </fieldset>
+      </form>
+
+      <div class="comprehension-button-group">
+        <button class="comprehension-button" id="comprehension-check" type="button" disabled>Check</button>
+      </div>
+    </section>
+
+    <section class="comprehension-result" id="comprehension-result" hidden aria-live="polite">
+      <h2 id="comprehension-result-title"></h2>
+      <p id="comprehension-result-copy"></p>
+      <div class="comprehension-button-group">
+        <button class="comprehension-button" id="comprehension-back-to-tutorial" type="button" hidden>Back to tutorial</button>
+        <button class="comprehension-button" id="comprehension-start" type="button" hidden>Start task</button>
+      </div>
+    </section>
+  </main>
 </div>
 
 <div class="guide-backdrop" id="guide-backdrop" hidden>
@@ -127,6 +198,9 @@
 <script src="../engine.js?v=7bh-formal-v23"></script>
 <script src="../study_feedback.js?v=7bh-formal-v23"></script>
 <script src="../shuffle-controls.js?v=7bh-formal-v23"></script>
+<script src="../guided-tutorial/steps.js?v=7bh-formal-v23"></script>
+<script src="../guided-tutorial/comprehension.js?v=7bh-formal-v23"></script>
+<script src="../guided-tutorial/engine.js?v=7bh-formal-v23"></script>
 <script src="../app.js?v=7bh-formal-v23"></script>
 </body>
 </html>
