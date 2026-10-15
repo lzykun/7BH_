@@ -77,6 +77,8 @@
     ? Math.max(0, Math.min(pool.sequences[schedule].materials.length - 1, requested - 1)) : 0;
   const continuation = 'local';
   const taskPage = inferredStage === 'task';
+  // The guided tutorial runs on the task page, so only an explicit request skips it.
+  const skipTutorialRequested = url.searchParams.get('skipTutorial') === '1';
 
   p.set('schedule', schedule);
   p.set('assigned_condition', schedule);
@@ -92,7 +94,8 @@
   if(preview) p.set('preview', '1');
   else p.delete('preview');
   if(taskPage || inspect){
-    p.set('skipTutorial', '1');
+    if(inspect || skipTutorialRequested) p.set('skipTutorial', '1');
+    else p.delete('skipTutorial');
     p.delete('stage');
   }else{
     p.delete('skipTutorial');
