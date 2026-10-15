@@ -3223,8 +3223,12 @@ if(!TASKS.length){
   };
   $("export-json").onclick = exportJson;
   $("export-csv").onclick = exportCsv;
+  // The server rejects task-stage events before comprehension_passed, so the page
+  // opens in the stage of the guided onboarding phase it resumes.
+  const onboardingPhase = restored || SKIP_GUIDED_TUTORIAL || !window.GuidedTutorial
+    ? "task" : window.GuidedTutorial.phase();
   window.StudyData?.init({
-    stage:"task",
+    stage:onboardingPhase,
     trial_index:curIndex + 1,
     task_id:scn.id,
     task_item_id:scn.itemId,
@@ -3232,8 +3236,6 @@ if(!TASKS.length){
     rulebook_revision:rulebookRevision,
   });
   window.StudyData?.record("experimental_assignment_loaded", window.EXPERIMENT_ASSIGNMENT || {});
-  const onboardingPhase = restored || SKIP_GUIDED_TUTORIAL || !window.GuidedTutorial
-    ? "task" : window.GuidedTutorial.phase();
   if(onboardingPhase !== "task"){
     // T1 is entered (and recorded) only after the tutorial and comprehension.
     taskReady = true;

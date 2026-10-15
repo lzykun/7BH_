@@ -27,11 +27,14 @@ jobs:
       - name: Verify release
         run: node tests/verify-release.cjs
 
+      - name: Verify guided tutorial
+        run: node tests/verify-guided-tutorial.cjs
+
       - name: Prepare static preview
         run: |
           mkdir _site
           cp index.html ./*.js ./*.css _site/
-          cp -R assets routes _site/
+          cp -R assets routes guided-tutorial _site/
           cp release-manifest.json _site/
           touch _site/.nojekyll
           test ! -e _site/record_result.php

@@ -5,66 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Tutorial</title>
   <link rel="icon" href="data:,">
-  <meta name="study-data-endpoint" content="../record_result.php">
-  <link rel="stylesheet" href="../styles.css?v=7bh-formal-v23">
-  <link rel="stylesheet" href="../tutorial-story.css?v=7bh-formal-v23">
-  </head>
-<body data-stage="tutorial" data-asset-prefix="../">
-<div class="onboarding-screen" id="tutorial-screen" hidden>
-  <main class="onboarding-shell" aria-labelledby="tutorial-title">
-    <header class="onboarding-header">
-      <div>
-        <h1 id="tutorial-title">Welcome to the Robot Warehouse!</h1>
-      </div>
-      <div class="onboarding-progress" aria-live="polite" hidden>
-        <span id="tut-progress-label">1 of 3</span>
-        <div class="onboarding-progress-track" aria-hidden="true">
-          <span id="tut-progress-bar"></span>
-        </div>
-      </div>
-    </header>
-
-    <div class="tut-body">
-      <div class="tut-copy">
-        <h2 id="tut-title"></h2>
-        <p class="tut-lead" id="tut-lead"></p>
-        <ul class="tut-points" id="tut-points"></ul>
-      </div>
-
-      <div class="tut-panel">
-        <div class="tut-visual" id="tut-visual">
-          <div class="tut-board-frame" id="tut-board-frame">
-            <div class="board tut-board" id="tut-board"></div>
-          </div>
-          <div class="tut-feedback" id="tut-feedback"></div>
-          <div class="tut-controls" id="tut-controls">
-            <button class="btn primary" id="tut-run" type="button">Run</button>
-            <div class="step-nav">
-              <button class="btn step-button" id="tut-prev" type="button" aria-label="Previous step">←</button>
-              <span class="step-label" id="tut-step-label">Step 0 / 0</span>
-              <button class="btn step-button" id="tut-next-step" type="button" aria-label="Next step">→</button>
-            </div>
-            <button class="btn text-button" id="tut-reset" type="button">Reset</button>
-          </div>
-        </div>
-        <div class="tut-rule-reference" id="tut-rule-reference" hidden></div>
-      </div>
-    </div>
-
-    <footer class="onboarding-footer">
-      <button class="tutorial-nav-button secondary" id="tut-back" type="button" disabled>Back</button>
-      <div class="onboarding-step-dots" id="tut-dots" aria-hidden="true" hidden></div>
-    </footer>
-  </main>
-</div>
-<script src="../shared-pool.js?v=7bh-formal-v23"></script>
-<script src="../study-config.js?v=7bh-formal-v23"></script>
-<script src="../data-collector.js?v=7bh-formal-v23"></script>
-<script src="../shuffle-bootstrap.js?v=7bh-formal-v23"></script>
-<script src="../engine.js?v=7bh-formal-v23"></script>
-<script src="../study_feedback.js?v=7bh-formal-v23"></script>
-<script src="../tutorial-emphasis.js?v=7bh-formal-v23"></script>
-<script src="../tutorial.js?v=7bh-formal-v23"></script>
-<script src="../stage-page.js?v=7bh-formal-v23"></script>
+  <script>
+  /* The guided tutorial and comprehension questions now run on the task page.
+     Old links and assignment.js routes still point here. */
+  location.replace("task.html" + location.search + location.hash);
+  </script>
+</head>
+<body data-stage="tutorial">
+<p><a href="task.html">Continue to the study</a></p>
 </body>
 </html>

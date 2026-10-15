@@ -341,13 +341,12 @@ function requireStage(nextStage){
   let destination = null;
   if(params.get("assignment_source") !== "server-block" || !params.get("session_token")) destination = "../index.html";
   else if(nextStage === "consent" && progress.consent){
-    destination = !progress.reminder ? "reminder.html" : !progress.tutorial ? "tutorial.html" :
-      !progress.comprehension ? "comprehension.html" : !progress.tasks ? "task.html" : "debrief.html";
+    destination = !progress.reminder ? "reminder.html" : !progress.tasks ? "task.html" : "debrief.html";
   }
   else if(nextStage !== "consent" && !progress.consent) destination = "consent.html";
   else if(!["consent","reminder"].includes(nextStage) && !progress.reminder) destination = "reminder.html";
-  else if(["comprehension","task","debrief","completion"].includes(nextStage) && !progress.tutorial) destination = "tutorial.html";
-  else if(["task","debrief","completion"].includes(nextStage) && !progress.comprehension) destination = "comprehension.html";
+  // The guided tutorial and comprehension run on the task page, so it needs only the reminder.
+  else if(["debrief","completion"].includes(nextStage) && (!progress.tutorial || !progress.comprehension)) destination = "task.html";
   else if(["debrief","completion"].includes(nextStage) && !progress.tasks) destination = "task.html";
   else if(nextStage === "completion" && !state.server_completed) destination = "debrief.html";
   if(destination){

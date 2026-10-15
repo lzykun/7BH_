@@ -8,8 +8,8 @@ if(!await data?.ready || !data.init({stage:"reminder"})) return;
 document.getElementById("reminder-continue")?.addEventListener("click", async event => {
   const button = event.currentTarget;
   button.disabled = true;
-  button.textContent = "Opening tutorial...";
+  button.textContent = "Opening the study...";
   data?.record("reminder_acknowledged");
-  await data?.navigate("tutorial.html");
+  await data?.navigate("task.html");
 });
 })();

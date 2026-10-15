@@ -45,6 +45,7 @@ Preview sessions remain in browser storage and do not write to the study server.
 
 ```bash
 node tests/verify-release.cjs
+node tests/verify-guided-tutorial.cjs
 ```
 
 This checks the runtime hashes, JavaScript syntax, shared task orders, pure Type
@@ -54,7 +55,7 @@ artifacts, not validation of the current release.
 
 ## Study flow
 
-The standalone pages cover consent, reminder, tutorial, comprehension, eleven coordination tasks, debrief, and completion. Formal server assignment balances participants across the all-local, early-jump, and late-jump conditions.
+The standalone pages cover consent, reminder, the task page, debrief, and completion. The task page runs the guided tutorial (`guided-tutorial/`, spec in `docs/guided-tutorial-storyboard.html`), the comprehension questions and the eleven coordination tasks. Researchers can open T1 directly with `routes/task.html?preview=1&skipTutorial=1`, and turn tutorial gadgets off in preview with `&guide_off=replay,features`. Formal server assignment balances participants across the all-local, early-jump, and late-jump conditions.
 
 ## Data safety
 
