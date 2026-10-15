@@ -1,0 +1,545 @@
+<title>7BH Tutorial Storyboard</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: the real task screen (fixed 1280x880, scaled to fit) on the left; storyboard notes, step list and gadget switches on the right. */
+:root{
+  --bg:#eef0ee; --panel:#ffffff; --ink:#172b3d; --muted:#5d6b73; --line:#d6dcda; --accent:#256fca; --chip:#e9f1fb; --core:#eceeed;
+  --font-ui:"IBM Plex Sans",-apple-system,"Segoe UI",sans-serif; --font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12181c; --panel:#1b2328; --ink:#e3e9ec; --muted:#9aa8af; --line:#2e3a40; --accent:#6aa6ec; --chip:#1f3248; --core:#263036; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#12181c; --panel:#1b2328; --ink:#e3e9ec; --muted:#9aa8af; --line:#2e3a40; --accent:#6aa6ec; --chip:#1f3248; --core:#263036; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.page{max-width:1640px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}
+@media (max-width:1100px){.page{grid-template-columns:minmax(0,1fr)}}
+header.top{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:8px 20px}
+header.top h1{font-size:20px;font-weight:600;margin:0;text-wrap:balance}
+header.top p{margin:0;color:var(--muted);max-width:70ch}
+.frame{min-width:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#f5f5f3}
+.frame-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);flex-wrap:wrap}
+.frame-bar kbd{font-family:var(--font-mono);font-size:11px;border:1px solid var(--line);border-radius:4px;padding:0 5px;background:var(--bg);color:var(--ink)}
+.frame-bar button{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:3px 10px;cursor:pointer}
+.frame-bar button:focus-visible,.side button:focus-visible,.side input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.viewport{position:relative;width:100%;overflow:hidden}
+
+/* ---------- The mock task screen: deliberately fixed to the real task UI's light look ---------- */
+.stage{position:absolute;left:0;top:0;width:1280px;height:880px;transform-origin:0 0;background:#f5f5f3;color:#172b3d;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
+.part{transition:opacity .25s ease,filter .25s ease}
+.part.locked{opacity:.22;filter:grayscale(1);pointer-events:none}
+.goals{position:absolute;left:40px;top:22px;width:760px}
+.goals strong{display:block;font-size:14px;font-weight:700}
+.goals span{font-size:16px;color:#4b5a63}
+.board{position:absolute;left:116px;top:76px;width:608px;height:608px;background:#1b2521 url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAXklEQVR4nGNUUFL8z0ABYAERypoqDB//fGDgZxEA029uv2EQURWB80H03et3sKpjAhmALAiiQQCZD6JxqWOkihdEVEVIcjZMHUieCeZcUpyNLM84GgsMo7HwZhDkBQD8p863WGLZDwAAAABJRU5ErkJggg==") repeat;background-size:32px 32px;image-rendering:pixelated;border:1px solid #111}
+.cell{position:absolute;width:32px;height:32px;background:#fffdf8;border:1px solid #d8e2df;box-sizing:border-box}
+.cell.flash{background:#fbe1dc;box-shadow:inset 0 0 0 3px #b42318}
+.bay{position:absolute;width:32px;height:32px;box-sizing:border-box}
+.bay::before{content:"";position:absolute;inset:3px;border:2px dashed var(--c)}
+.bay b{position:absolute;left:1px;top:1px;width:12px;height:12px;border:1px solid var(--c);background:#fff;color:var(--c);font-size:8px;line-height:11px;text-align:center;font-weight:800}
+.robot{position:absolute;width:30px;height:30px;border-radius:4px;z-index:5;transition:left .38s ease,top .38s ease,box-shadow .2s}
+.robot svg{position:absolute;left:8px;top:6px;width:14px;height:14px;color:#fff}
+.robot .rid{position:absolute;left:-3px;top:-4px;min-width:11px;height:11px;padding:0 2px;background:#fff;color:#2c2c2a;border:1px solid rgba(0,0,0,.18);font-size:8px;line-height:10px;text-align:center;font-weight:700}
+.robot .rtype{position:absolute;left:-4px;bottom:-5px;width:14px;height:14px;background:#fff4f2;border:1px solid #b42318;color:#b42318;font-size:10px;font-weight:800;line-height:12px;text-align:center}
+.robot .rarrow{position:absolute;right:-5px;bottom:-5px;width:16px;height:16px;background:#fff4f2;border:1px solid #b42318;color:#b42318;font-size:12px;font-weight:800;line-height:14px;text-align:center}
+.robot.match{box-shadow:0 0 0 3px #2fb24c}
+.robot.waiting{box-shadow:0 0 0 3px rgba(179,107,0,.55)}
+.robot.failed{box-shadow:0 0 0 3px rgba(180,35,24,.8);animation:shake .3s 2}
+.robot.done{box-shadow:0 0 0 3px rgba(15,110,86,.45)}
+@keyframes shake{25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
+.status{position:absolute;left:40px;top:700px;width:760px;min-height:48px;font-size:15px;line-height:1.4;color:#172b3d;display:flex;align-items:center}
+.status.ok{color:#0f6e56}.status.bad{color:#a32d2d}
+.runbar{position:absolute;left:40px;top:770px;display:flex;align-items:center;gap:8px}
+.btn-run{font:600 16px Arial,sans-serif;background:#256fca;color:#fff;border:0;padding:12px 30px;cursor:pointer}
+.btn-run:disabled{background:#9db8d9;cursor:default}
+.step-btn{width:30px;height:44px;border:1px solid #c9d1d4;background:#fff;color:#7a868c;font-size:15px;cursor:pointer}
+.step-label{min-width:76px;text-align:center;font-size:15px;color:#4b5a63}
+.rules{position:absolute;left:840px;top:22px;width:400px}
+.rules h2{font-size:22px;margin:0 0 14px}
+.current{background:#fff4cf;border-left:4px solid #e3a21a;padding:9px 12px;margin-bottom:22px}
+.current small{display:block;font-size:12px;letter-spacing:.08em;color:#5b5b55;font-weight:700}
+.current strong{font-size:17px}
+.context{font-size:14px;letter-spacing:.08em;font-weight:700;color:#4b5a63;padding-bottom:8px;border-bottom:1px solid #c9d1d4;margin-bottom:12px}
+.intro strong{display:block;font-size:17px}
+.intro p{margin:2px 0 10px;font-size:14px;color:#5b6870}
+.tabs{display:flex;border-top:1px solid #c9d1d4;border-bottom:1px solid #c9d1d4;margin-bottom:12px}
+.tabs button{flex:1;font:600 17px Arial,sans-serif;padding:10px;border:0;border-bottom:3px solid transparent;background:transparent;color:#5b6870;cursor:pointer}
+.tabs button[aria-selected="true"]{background:#f0f6fd;color:#256fca;border-bottom-color:#256fca}
+.fam{font-size:17px;font-weight:700;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.values{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.values button{height:60px;border:1px solid #b8bdbf;border-radius:5px;background:#fff;font:14px Arial,sans-serif;color:#172b3d;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.values button .sw{position:relative;width:28px;height:26px;background:#2d70b3;border:1px solid #1d4f80}
+.values button .sw svg{position:absolute;left:7px;top:5px;width:13px;height:13px;color:#fff}
+.values button .sw i{position:absolute;right:-6px;bottom:-5px;width:13px;height:13px;border:1px solid #b42318;background:#fff4f2;color:#b42318;font-style:normal;font-size:10px;line-height:11px;font-weight:800;text-align:center}
+.values button.sel{border:2px solid #256fca;color:#256fca}
+
+/* guide overlay */
+.spotsvg{position:absolute;left:0;top:0;width:1280px;height:880px;z-index:40;pointer-events:none}
+.bubble{position:absolute;z-index:50;width:380px;background:#fff;border:2px solid #256fca;border-radius:10px;padding:16px 16px 12px 16px;box-shadow:0 10px 30px rgba(0,0,0,.25);font-family:Arial,sans-serif;transition:left .3s ease,top .3s ease}
+.bubble .who{display:flex;gap:12px;align-items:flex-start}
+.bubble .bot{flex:0 0 46px;height:46px;color:#2563b8}
+.bubble .msg{font-size:17px;line-height:1.45;color:#172b3d}
+.bubble .msg em{font-style:normal;font-weight:700;color:#256fca}
+.bubble .msg .key{display:block;margin-top:6px;font-weight:700}
+.bubble .wait{margin-top:8px;font-size:13px;color:#8a5a00;background:#fff4cf;padding:4px 8px;display:inline-block}
+.bubble .wait[hidden]{display:none}
+.bubble .nav{display:flex;justify-content:space-between;align-items:center;margin-top:14px;border-top:1px solid #e3e8ea;padding-top:10px}
+.bubble .nav button{font:600 14px Arial,sans-serif;padding:7px 14px;border-radius:6px;cursor:pointer}
+.bubble .back{background:#fff;border:1px solid #c9d1d4;color:#4b5a63}
+.bubble .next{background:#256fca;border:1px solid #256fca;color:#fff}
+.bubble .next:disabled{background:#c9d6e6;border-color:#c9d6e6;cursor:default}
+.bubble .count{font-size:12px;color:#7a868c}
+.bubble .next.pulse{animation:pulse 1.2s infinite}
+@keyframes pulse{50%{box-shadow:0 0 0 6px rgba(37,111,202,.25)}}
+
+/* ---------- Storyboard side panel ---------- */
+.side{display:grid;gap:14px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0}
+.card h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px;font-weight:600}
+.card h3{font-size:16px;margin:0 0 6px;text-wrap:balance}
+.card p{margin:0 0 8px}
+dl.meta{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;margin:8px 0 0;font-size:13px}
+dl.meta dt{color:var(--muted)}
+dl.meta dd{margin:0;font-family:var(--font-mono);font-size:12px;overflow-wrap:anywhere}
+.chip{display:inline-block;font-family:var(--font-mono);font-size:11px;padding:1px 7px;border-radius:999px;background:var(--chip);color:var(--accent);white-space:nowrap}
+.chip.core{background:var(--core);color:var(--muted)}
+ol.steps{list-style:none;margin:0;padding:0;display:grid;gap:2px;max-height:420px;overflow:auto}
+ol.steps button{all:unset;box-sizing:border-box;width:100%;display:grid;grid-template-columns:26px minmax(0,1fr) auto;gap:8px;align-items:center;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:13px}
+ol.steps button:hover{background:var(--bg)}
+ol.steps button[aria-current="step"]{background:var(--chip);color:var(--ink);font-weight:600}
+ol.steps .n{font-family:var(--font-mono);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+ol.steps li.off button{opacity:.4;text-decoration:line-through}
+.toggles{display:grid;gap:8px}
+.toggles label{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:start;font-size:13px;cursor:pointer}
+.toggles small{display:block;color:var(--muted);font-size:12px}
+pre.cfg{margin:8px 0 0;padding:10px;background:var(--bg);border-radius:6px;font-family:var(--font-mono);font-size:11.5px;line-height:1.5;overflow-x:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+ul.q{margin:6px 0 0;padding-left:18px}
+ul.q li{margin:3px 0}
+/* success confetti: copied from the real task (app.js showSuccessConfetti, styles.css .task-success-confetti) */
+.confetti{position:absolute;inset:0;z-index:60;overflow:hidden;pointer-events:none;background:rgba(23,23,21,.2)}
+.confetti span{position:absolute;top:0;left:0;background:currentColor;opacity:0}
+.confetti span.spark{box-shadow:var(--px) 0 currentColor,calc(-1 * var(--px)) 0 currentColor,0 var(--px) currentColor,0 calc(-1 * var(--px)) currentColor}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="page">
+  <header class="top">
+    <h1>7BH 引导式 tutorial · 可点击 storyboard</h1>
+    <p>界面复刻 v23 的真实任务页面。这是看效果用的模型，不是正式代码，也没有改动仓库。可以直接在页面上评论。</p>
+  </header>
+
+  <section class="frame" aria-label="Tutorial preview">
+    <div class="frame-bar">
+      <span>像参与者一样操作：<kbd>←</kbd> <kbd>→</kbd> 前后翻页，灰色区域暂时不能点</span>
+      <button type="button" id="restart">从头开始</button>
+    </div>
+    <div class="viewport" id="viewport">
+      <div class="stage" id="stage">
+        <div class="goals part" data-part="goals"><strong>Goals</strong><span>Help every robot reach its charging bay. Robots that are not involved in a conflict keep moving.</span></div>
+        <div class="board part" data-part="board" id="board"></div>
+        <div class="status part" data-part="status" id="status" role="status" aria-live="polite"></div>
+        <div class="runbar part" data-part="runbar">
+          <button class="btn-run" id="run" type="button">Run rule</button>
+          <button class="step-btn" id="prev" type="button" aria-label="Previous step">←</button>
+          <span class="step-label" id="stepLabel">Ready</span>
+          <button class="step-btn" id="nextStep" type="button" aria-label="Next step">→</button>
+        </div>
+        <section class="rules">
+          <div class="part" data-part="rules-head"><h2>Rules</h2></div>
+          <div class="current part" data-part="current"><small>CURRENT RULE</small><strong id="ruleText">No waiting rule yet.</strong></div>
+          <div class="part" data-part="context"><div class="context">WHEN TWO ROBOTS MEET</div>
+            <div class="intro"><strong>Choose who waits</strong><p>Select one or more values. A robot waits if it matches any selected value.</p></div></div>
+          <div class="tabs part" data-part="tabs" role="tablist">
+            <button type="button" role="tab" id="tab-role" aria-selected="true">Type</button>
+            <button type="button" role="tab" id="tab-move" aria-selected="false">Movement</button>
+          </div>
+          <div class="part" data-part="values"><div class="fam" id="famTitle"></div><div class="values" id="values"></div></div>
+        </section>
+        <svg class="spotsvg" id="spot" viewBox="0 0 1280 880" aria-hidden="true"></svg>
+        <div class="bubble" id="bubble" role="dialog" aria-live="polite">
+          <div class="who">
+            <svg class="bot" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 3h8v2h2v7H6V5h2V3ZM5 12h14v9H5v-9Z"/><circle cx="10" cy="8" r="1" fill="#202020"/><circle cx="14" cy="8" r="1" fill="#202020"/><path d="M9 16h6M9 18h6" stroke="#fff" stroke-width="1.4"/></svg>
+            <div><div class="msg" id="msg"></div><div class="wait" id="waitNote" hidden></div></div>
+          </div>
+          <div class="nav">
+            <button class="back" id="back" type="button">← Back</button>
+            <span class="count" id="count"></span>
+            <button class="next" id="next" type="button">Next →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="side">
+    <section class="card" aria-labelledby="this-step">
+      <h2 id="this-step">这一步</h2>
+      <h3 id="noteTitle"></h3>
+      <p id="notePurpose"></p>
+      <dl class="meta">
+        <dt>模块</dt><dd id="noteGadget"></dd>
+        <dt>高亮</dt><dd id="noteTarget"></dd>
+        <dt>解锁</dt><dd id="noteUnlock"></dd>
+        <dt>继续条件</dt><dd id="noteGate"></dd>
+        <dt>记录事件</dt><dd id="noteEvent"></dd>
+      </dl>
+      <div id="noteQ"></div>
+      <pre class="cfg" id="cfg" aria-label="Step config"></pre>
+    </section>
+    <section class="card" aria-labelledby="g-title">
+      <h2 id="g-title">可开关的模块（gadgets）</h2>
+      <div class="toggles" id="toggles"></div>
+    </section>
+    <section class="card" aria-labelledby="s-title">
+      <h2 id="s-title">全部步骤</h2>
+      <ol class="steps" id="steps"></ol>
+    </section>
+  </aside>
+</div>
+
+<script>
+(function(){
+"use strict";
+/* ===== Config: what Claude Code would turn into guided-tutorial/steps.js ===== */
+const PRACTICE = {family:"move", value:"N"};   // practice answer; must match T1 once the task set is final
+const GADGETS = {
+  core:{label:"主线（不可关闭）"},
+  fullscreen:{label:"全屏提示", desc:"开头提醒参与者用全屏"},
+  features:{label:"机器人徽章讲解", desc:"讲编号、Type 字母和方向箭头"},
+  replay:{label:"回放按钮讲解", desc:"讲 ← → 逐步回放"},
+  "two-tabs":{label:"两个标签不能同时生效", desc:"说明只有当前标签的规则会运行"},
+  "match-outline":{label:"绿色轮廓说明", requires:"select-value", desc:"讲选中值后机器人的绿色轮廓"},
+  "carry-over":{label:"规则沿用说明", requires:"practice-run", desc:"讲规则会沿用到下一题"},
+};
+const DIR = {N:"↑",NE:"↗",E:"→",SE:"↘",S:"↓",SW:"↙",W:"←",NW:"↖"};
+const DIR_NAME = {N:"north",NE:"north-east",E:"east",SE:"south-east",S:"south",SW:"south-west",W:"west",NW:"north-west"};
+const TYPES = ["A","B","C","D","E","F","G","H"];
+
+const MAPS = {
+  m1:{open:[...[2,3,4,5,6,7].map(c=>[3,c]),...[2,3,4,5,6,7].map(c=>[5,c])],
+      robots:[{id:1,color:"#2563B8",type:"A",path:[[3,2],[3,3],[3,4],[3,5],[3,6],[3,7]]},
+              {id:2,color:"#C04B23",type:"D",path:[[5,7],[5,6],[5,5],[5,4],[5,3],[5,2]]}]},
+  m2:{open:[...[2,3,4,5,6,7].map(c=>[4,c]),[2,5],[3,5],[5,5],[6,5],[7,5]],
+      robots:[{id:1,color:"#2563B8",type:"A",path:[[4,2],[4,3],[4,4],[4,5],[4,6],[4,7]]},
+              {id:2,color:"#C04B23",type:"D",path:[[7,5],[6,5],[5,5],[4,5],[3,5],[2,5]]}]},
+};
+
+const STEPS = [
+ {id:"welcome",gadget:"core",title:"欢迎",map:"m1",rule:"none",shown:"start",target:null,unlock:[],
+  text:"Welcome to the Robot Warehouse! This is the screen you will work on. Let's walk through it together.",
+  purpose:"一开始所有区域置灰，只出现小机器人。参与者先知道这就是之后要用的界面。",event:"tutorial_step_viewed"},
+ {id:"fullscreen",gadget:"fullscreen",title:"全屏提示",map:"m1",rule:"none",shown:"start",target:null,unlock:[],
+  text:"For the best view, please make your browser window full screen now.",
+  purpose:"对应 B6：缩放规则和正式任务相同，只加一句提醒。",event:"tutorial_step_viewed"},
+ {id:"map",gadget:"core",title:"地图与充电位",map:"m1",rule:"none",shown:"start",target:"#board",area:[[3,2],[5,7]],unlock:["board"],
+  text:"The robots are heading back to their charging bays. Each robot and its bay share the <em>same number and colour</em>.",
+  purpose:"只解锁地图。开放区域放在左上角，和 T1 位置一致（B1/B2）。",event:"tutorial_step_viewed"},
+ {id:"badges",gadget:"features",title:"机器人徽章",map:"m1",rule:"none",shown:"start",target:"robot:1",unlock:["board"],
+  text:"The <em>arrow</em> shows which way a robot will move next. The <em>letter</em> is its Type. You will use these later.",
+  purpose:"可关闭的讲解。之后在规则面板里还会再提到这两个特征。",event:"tutorial_step_viewed"},
+ {id:"run-1",gadget:"core",title:"按 Run 看机器人走",map:"m1",rule:"none",shown:"start",target:"#board",area:[[3,2],[5,7]],targetAlso:".runbar",unlock:["board","runbar"],gate:"run-any",
+  text:"Robots always take the shortest route to their bay. Press <em>Run rule</em> to watch them move.",wait:"Press Run rule to continue",
+  purpose:"动作类步骤：必须按 Run 才能继续。直走廊没有冲突，只为让人理解移动方式和终点（B3）。",event:"tutorial_run"},
+ {id:"replay",gadget:"replay",title:"回放按钮",map:"m1",rule:"none",shown:"end",target:"#board",area:[[3,2],[5,7]],targetAlso:".runbar",unlock:["board","runbar"],
+  text:"Use the <em>← →</em> buttons to replay a run one step at a time.",
+  purpose:"可关闭的讲解。",event:"tutorial_step_viewed"},
+ {id:"run-2",gadget:"core",title:"复杂地图：冲突",map:"m2",rule:"none",shown:"start",target:"#board",area:[[2,2],[7,7]],targetAlso:".runbar",unlock:["board","runbar","status"],gate:"run-any",
+  text:"Sometimes the layout gets more complicated. Press <em>Run rule</em> and see what happens on this map.",wait:"Press Run rule to continue",
+  purpose:"换成第二张地图，两个机器人在十字路口相撞。状态栏用正式任务的反馈文字（C5）。",event:"tutorial_run"},
+ {id:"clash",gadget:"core",title:"解释冲突",map:"m2",rule:"none",shown:"end",target:"#status",unlock:["board","runbar","status"],
+  text:"The two robots tried to enter the <em>same square</em> at the same time and collided. Robots in a collision stop.",
+  purpose:"这里讲清楚冲突的含义，对应 comprehension 第 2 题。",event:"tutorial_step_viewed"},
+ {id:"task",gadget:"core",title:"你的任务",map:"m2",rule:"none",shown:"end",target:null,unlock:["board","runbar","status","goals"],
+  text:"<span class='key'>Your task is to coordinate the robots and prevent them from colliding.</span>",
+  purpose:"任务说明单独一步，加粗显示（沿用 v23 的强调句）。同时解锁 Goals。",event:"tutorial_step_viewed"},
+ {id:"rules",gadget:"core",title:"规则面板",map:"m2",rule:"none",shown:"end",target:".rules",bubbleDx:-70,unlock:["board","runbar","status","goals","rules-head","current","context"],
+  text:"You coordinate them with a <em>waiting rule</em>. When two robots meet, your rule decides which one waits.",
+  purpose:"右侧面板从这里开始解锁，标签和数值按钮仍是灰的。",event:"tutorial_step_viewed"},
+ {id:"features",gadget:"core",title:"两种特征",map:"m2",rule:"none",shown:"end",target:"[data-part=tabs]",unlock:["board","runbar","status","goals","rules-head","current","context","tabs"],
+  text:"A rule can use one of two robot features: <em>Type</em> (the letter) or <em>Movement</em> direction (the arrow).",
+  purpose:"把地图上的徽章和右侧的两个标签对应起来。",event:"tutorial_step_viewed"},
+ {id:"two-tabs",gadget:"two-tabs",title:"一次只用一个标签",map:"m2",rule:"none",shown:"end",target:"[data-part=tabs]",unlock:["board","runbar","status","goals","rules-head","current","context","tabs"],
+  text:"Only the tab that is open when you press Run is used. Each tab keeps its own selections.",
+  purpose:"对应 C2 和 comprehension 第 3 题，可关闭。",event:"tutorial_step_viewed"},
+ {id:"pick-movement",gadget:"core",title:"点 Movement",map:"m2",rule:"none",shown:"end",target:"#tab-move",unlock:["board","runbar","status","goals","rules-head","current","context","tabs"],gate:"family-move",
+  text:"Let's use Movement for this map. Click the <em>Movement</em> tab.",wait:"Click Movement to continue",
+  purpose:"练习只用 Movement，建立 Movement anchor（C2/C3）。",event:"tutorial_rule_family_changed"},
+ {id:"select-value",gadget:"core",title:"选 north",map:"m2",rule:"move-tab",shown:"end",target:"value:N",unlock:["board","runbar","status","goals","rules-head","current","context","tabs","values"],gate:"value",
+  text:"Robot 2 is moving <em>north ↑</em>. Select <em>north</em> so that robot waits when the two meet.",wait:"Select north to continue",
+  purpose:"直接告诉参与者答案（C4）。答案值在配置里，目前是 north；等新 task 定下来，要和 T1 的解对上。",event:"tutorial_rule_value_toggled"},
+ {id:"match-outline",gadget:"match-outline",title:"绿色轮廓",map:"m2",rule:"move-N",shown:"start",target:"robot:2",unlock:["board","runbar","status","goals","rules-head","current","context","tabs","values"],
+  text:"Robots that match your rule get a <em>green outline</em>. It shows who would wait. It does not mean the rule works yet.",
+  purpose:"可关闭。依赖「选 north」这一步。",event:"tutorial_step_viewed"},
+ {id:"current-rule",gadget:"core",title:"当前规则",map:"m2",rule:"move-N",shown:"start",target:".current",unlock:["board","runbar","status","goals","rules-head","current","context","tabs","values"],
+  text:"Your current rule is written out here in words.",
+  purpose:"把选择和文字句子对应起来。",event:"tutorial_step_viewed"},
+ {id:"practice-run",gadget:"core",title:"测试规则",map:"m2",rule:"move-N",shown:"start",target:"#board",area:[[2,2],[7,7]],targetAlso:".runbar",unlock:["board","runbar","status","goals","rules-head","current","context","tabs","values"],gate:"run-success",
+  text:"Press <em>Run rule</em> to test your rule.",wait:"Get both robots to their bays to continue",
+  purpose:"必须成功才能继续。如果参与者改了选择导致失败，状态栏会提示再试一次。",event:"tutorial_run（practice_protocol 新值）"},
+ {id:"good-job",gadget:"core",title:"Good job",celebrate:true,map:"m2",rule:"move-N",shown:"end",target:"#board",area:[[2,2],[7,7]],unlock:["board","runbar","status","goals","rules-head","current","context","tabs","values"],
+  text:"<span class='key'>Good job!</span> Robot 2 waited, robot 1 passed, and both reached their bays in the same Run.",
+  purpose:"进入这一步时和 Good job 一起弹出彩带，和正式任务一模一样（C5，代码照搬 app.js）。从后面 Back 回来时不再重复弹。",event:"tutorial_step_viewed"},
+ {id:"one-rule",gadget:"core",title:"一条规则，所有机器人",map:"m2",rule:"move-N",shown:"end",target:".rules",unlock:["board","runbar","status","goals","rules-head","current","context","tabs","values"],
+  text:"In each task you build <em>one rule</em>, and every robot follows it. A task is complete when every robot reaches its bay in the same Run.",
+  purpose:"把 v23 收尾页的要点放到这里，在刚成功之后讲（C6）。对应 comprehension 第 1 题。",event:"tutorial_step_viewed"},
+ {id:"carry-over",gadget:"carry-over",title:"规则沿用",map:"m2",rule:"move-N",shown:"end",target:".current",unlock:["board","runbar","status","goals","rules-head","current","context","tabs","values"],
+  text:"When the next task starts, your rule <em>stays selected</em>. You can keep it or change it.",
+  purpose:"可关闭（C7）。依赖练习这一步，因为要带入 T1 的就是练习里的规则。对应 comprehension 第 4 题。",event:"tutorial_step_viewed"},
+ {id:"end",gadget:"core",title:"进入正式任务",map:"m2",rule:"move-N",shown:"end",target:null,unlock:["board","runbar","status","goals","rules-head","current","context","tabs","values"],
+  text:"That's it! Next come a few quick questions, then your first task on the full warehouse map.",
+  purpose:"之后接 comprehension 弹窗，再进 T1（A1：答错回到 tutorial）。用方案 A 还是 B 等你看完再定。",event:"tutorial_completed"},
+];
+
+/* ===== State ===== */
+const $ = id => document.getElementById(id);
+const stage = $("stage"), board = $("board");
+let enabled = {}; Object.keys(GADGETS).forEach(g => enabled[g] = true);
+try{ const saved = JSON.parse(localStorage.getItem("7bh-sb-gadgets")||"null"); if(saved) Object.assign(enabled, saved, {core:true}); }catch(e){}
+let seq = [], pos = 0, done = new Set();
+let rule = {family:"role", sel:{role:new Set(), move:new Set()}};
+let mapId = "m1", frames = [], frameIx = 0, timer = null, lastOk = null;
+
+/* ===== Simulation ===== */
+function dirOf(a,b){ if(!b) return null; const dr=b[0]-a[0], dc=b[1]-a[1];
+  return ({"-1,0":"N","-1,1":"NE","0,1":"E","1,1":"SE","1,0":"S","1,-1":"SW","0,-1":"W","-1,-1":"NW"})[dr+","+dc]; }
+function matches(r, ix){ const vals = rule.sel[rule.family]; if(!vals.size) return false;
+  if(rule.family==="role") return vals.has(r.type);
+  return vals.has(dirOf(r.path[ix], r.path[ix+1])); }
+function simulate(){
+  const rs = MAPS[mapId].robots, ix = rs.map(()=>0), st = rs.map(()=>"moving");
+  const snap = (flash,msg)=>({ix:ix.slice(),st:st.slice(),flash,msg});
+  const out=[snap(null,"")];
+  for(let t=1;t<20;t++){
+    const active = rs.map((r,i)=>st[i]!=="done"&&st[i]!=="failed");
+    if(!active.some(Boolean)) break;
+    const want = rs.map((r,i)=>active[i]?r.path[ix[i]+1]:null);
+    const move = rs.map((r,i)=>active[i]);
+    let flash=null, msg="";
+    for(let i=0;i<rs.length;i++) for(let j=i+1;j<rs.length;j++){
+      if(!active[i]||!active[j]) continue;
+      const same = want[i]&&want[j]&&want[i]+""===want[j]+"";
+      const swap = want[i]&&want[j]&&want[i]+""===rs[j].path[ix[j]]+""&&want[j]+""===rs[i].path[ix[i]]+"";
+      if(!same&&!swap) continue;
+      const mi=matches(rs[i],ix[i]), mj=matches(rs[j],ix[j]);
+      if(mi!==mj){ const w = mi?i:j; move[w]=false; st[w]="waiting";
+        msg=`Robot ${rs[w].id} matches your rule, so it waits. Robot ${rs[w===i?j:i].id} goes first.`; }
+      else { st[i]=st[j]="failed"; move[i]=move[j]=false; flash=want[i];
+        msg = mi ? `Robots ${rs[i].id} and ${rs[j].id} both match your rule, so neither can go first. They collided.`
+                 : `Robots ${rs[i].id} and ${rs[j].id} tried to enter the same square and collided.`; }
+    }
+    rs.forEach((r,i)=>{ if(!active[i]) return;
+      if(move[i]){ const occ = rs.some((o,k)=>k!==i && !move[k] && o.path[ix[k]]+""===want[i]+"");
+        if(occ){ st[i]="waiting"; return; }
+        ix[i]++; st[i] = ix[i]===r.path.length-1 ? "done" : "moving"; } });
+    out.push(snap(flash,msg));
+  }
+  const ok = st.every(s=>s==="done");
+  out[out.length-1].msg = ok ? "Success! Every robot reached its charging bay in this Run."
+    : (out.slice().reverse().find(f=>f.flash)?.msg || "Not every robot reached its bay.");
+  return {frames:out, ok};
+}
+
+/* ===== Rendering the task screen ===== */
+const BOT = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 3h8v2h2v7H6V5h2V3ZM5 12h14v9H5v-9Z"/><circle cx="10" cy="8" r="1" fill="#202020"/><circle cx="14" cy="8" r="1" fill="#202020"/><path d="M9 16h6M9 18h6" stroke="#fff" stroke-width="1.4"/></svg>';
+function buildBoard(){
+  const m = MAPS[mapId]; board.innerHTML="";
+  m.open.forEach(([r,c])=>{ const d=document.createElement("div"); d.className="cell"; d.dataset.cell=r+","+c;
+    d.style.left=c*32+"px"; d.style.top=r*32+"px"; board.appendChild(d); });
+  m.robots.forEach(r=>{ const [br,bc]=r.path[r.path.length-1]; const b=document.createElement("div"); b.className="bay";
+    b.style.cssText=`left:${bc*32}px;top:${br*32}px;--c:${r.color}`; b.innerHTML=`<b>${r.id}</b>`; board.appendChild(b); });
+  m.robots.forEach(r=>{ const e=document.createElement("div"); e.className="robot"; e.id="robot-"+r.id; e.style.background=r.color;
+    e.innerHTML=`${BOT}<span class="rid">${r.id}</span><span class="rtype">${r.type}</span><span class="rarrow"></span>`;
+    e.setAttribute("aria-label",`Robot ${r.id}, Type ${r.type}`); board.appendChild(e); });
+}
+function drawFrame(f, live){
+  const rs = MAPS[mapId].robots;
+  board.querySelectorAll(".cell.flash").forEach(c=>c.classList.remove("flash"));
+  rs.forEach((r,i)=>{ const e=$("robot-"+r.id), p=r.path[f.ix[i]];
+    e.style.left=p[1]*32+1+"px"; e.style.top=p[0]*32+1+"px";
+    const d = dirOf(p, r.path[f.ix[i]+1]) || dirOf(r.path[r.path.length-2], r.path[r.path.length-1]);
+    e.querySelector(".rarrow").textContent = DIR[d];
+    e.classList.remove("waiting","failed","done");
+    if(f.st[i]!=="moving") e.classList.add(f.st[i]);
+    e.classList.toggle("match", frameIx===0 && matches(r, f.ix[i]));
+  });
+  if(f.flash){ const c=board.querySelector(`[data-cell="${f.flash}"]`); c&&c.classList.add("flash"); }
+  const total = frames.length-1;
+  $("stepLabel").textContent = total>0 ? `Step ${frameIx} / ${total}` : "Ready";
+  if(live!==false){ const s=$("status"); s.className="status part"+(lastOk===true&&frameIx===total?" ok":lastOk===false&&frameIx===total?" bad":"");
+    s.textContent = frameIx===total && total>0 ? f.msg : (f.msg || (total>0?"":s.dataset.idle||"")); }
+}
+function resetRun(idle){
+  clearInterval(timer); timer=null; frames=[{ix:MAPS[mapId].robots.map(()=>0),st:MAPS[mapId].robots.map(()=>"moving"),flash:null,msg:""}];
+  frameIx=0; lastOk=null; $("status").dataset.idle = idle||""; drawFrame(frames[0]); applyLock();
+}
+function showEnd(){ const r=simulate(); frames=r.frames; frameIx=frames.length-1; lastOk=r.ok; drawFrame(frames[frameIx]); }
+function play(){
+  if(timer) return;
+  const r=simulate(); frames=r.frames; frameIx=0; lastOk=null; drawFrame(frames[0]);
+  $("run").disabled=true;
+  timer=setInterval(()=>{ frameIx++; if(frameIx>=frames.length-1){ frameIx=frames.length-1; clearInterval(timer); timer=null; lastOk=r.ok; $("run").disabled=false; onRunDone(r.ok); }
+    drawFrame(frames[frameIx]); }, 420);
+}
+function renderRules(){
+  $("tab-role").setAttribute("aria-selected", rule.family==="role");
+  $("tab-move").setAttribute("aria-selected", rule.family==="move");
+  $("famTitle").innerHTML = rule.family==="role" ? `<span style="width:16px;height:16px;color:#172b3d">${BOT}</span>Robot type` : `<span aria-hidden="true">↗</span>Movement direction`;
+  const vals = rule.family==="role" ? TYPES : Object.keys(DIR);
+  $("values").innerHTML = vals.map(v=>{ const sel = rule.sel[rule.family].has(v);
+    const mark = rule.family==="role" ? v : DIR[v]; const label = rule.family==="role" ? "Type "+v : DIR_NAME[v];
+    return `<button type="button" data-v="${v}" class="${sel?"sel":""}" aria-pressed="${sel}"><span class="sw">${BOT}<i>${mark}</i></span>${label}</button>`; }).join("");
+  const s = rule.sel[rule.family];
+  $("ruleText").textContent = !s.size ? "No waiting rule yet."
+    : rule.family==="role" ? `A robot waits if it is Type ${[...s].join(" or ")}.` : `A robot waits if it is moving ${[...s].map(v=>DIR[v]).join(" or ")}.`;
+  if(frames.length) drawFrame(frames[frameIx], false);
+}
+
+/* ===== Guide engine ===== */
+function buildSeq(){ seq = STEPS.filter(s=>enabled[s.gadget]); pos = Math.min(pos, seq.length-1); }
+function applyLock(){
+  const st = seq[pos]; const open = new Set(st?st.unlock:[]);
+  document.querySelectorAll(".stage .part").forEach(p=>p.classList.toggle("locked", !open.has(p.dataset.part)));
+}
+function setupStep(){
+  const st = seq[pos];
+  if(mapId!==st.map || !board.children.length){ mapId=st.map; buildBoard(); }
+  rule.family = st.rule==="none" ? "role" : "move";
+  rule.sel = {role:new Set(), move:new Set(st.rule==="move-N"?[PRACTICE.value]:[])};
+  renderRules(); resetRun();
+  const completed = done.has(st.id);
+  if(st.shown==="end" || (st.gate && completed && st.gate.startsWith("run"))) showEnd();
+  if(st.gate==="family-move" && completed){ rule.family="move"; renderRules(); }
+  if(st.gate==="value" && completed){ rule.sel.move.add(PRACTICE.value); renderRules(); }
+  applyLock();
+}
+function targetRect(){
+  const st = seq[pos]; if(!st.target) return null;
+  const sr = stage.getBoundingClientRect(), k = sr.width/1280;
+  const rel = r => ({x:(r.left-sr.left)/k, y:(r.top-sr.top)/k, w:r.width/k, h:r.height/k});
+  let r;
+  if(st.area){ const [[r0,c0],[r1,c1]] = st.area; r={x:116+c0*32+1, y:76+r0*32+1, w:(c1-c0+1)*32, h:(r1-r0+1)*32}; }
+  else{
+    if(st.target.startsWith("robot:")){
+      // place from the current frame, not the DOM, so a robot still sliding back to its start is boxed at its start
+      const rs = MAPS[mapId].robots, i = rs.findIndex(x=>String(x.id)===st.target.slice(6));
+      const [rr,cc] = rs[i].path[frames[frameIx].ix[i]];
+      const pad = 6; return [{x:116+cc*32+1-pad, y:76+rr*32+1-pad, w:30+pad*2, h:30+pad*2}];
+    }
+    let el = st.target.startsWith("value:") ? $("values").querySelector(`[data-v="${st.target.slice(6)}"]`)
+      : stage.querySelector(st.target);
+    if(!el) return null; r = rel(el.getBoundingClientRect());
+    if(st.targetTo){ const b = rel(stage.querySelector(st.targetTo).getBoundingClientRect()); const x2=Math.max(r.x+r.w,b.x+b.w); r.w=x2-r.x; }
+  }
+  const pad = 6, padded = q => ({x:q.x-pad, y:q.y-pad, w:q.w+pad*2, h:q.h+pad*2});
+  const list = [padded(r)];
+  if(st.targetAlso) list.push(padded(rel(stage.querySelector(st.targetAlso).getBoundingClientRect())));
+  return list;
+}
+function drawSpots(rs){
+  // one dark layer with a cut-out per highlighted area, so several separate parts can be lit at once
+  const holes = rs.map(q=>`<rect x="${q.x}" y="${q.y}" width="${q.w}" height="${q.h}" rx="6" fill="#000"/>`).join("");
+  $("spot").innerHTML = `<defs><mask id="spotmask"><rect width="1280" height="880" fill="#fff"/>${holes}</mask></defs><rect width="1280" height="880" fill="rgba(14,26,38,.52)" mask="url(#spotmask)"/>`
+    + rs.map(q=>`<rect x="${q.x-2}" y="${q.y-2}" width="${q.w+4}" height="${q.h+4}" rx="8" fill="none" stroke="#ffd257" stroke-width="3"/>`).join("");
+}
+function placeGuide(){
+  const st = seq[pos], bub=$("bubble"), rs = targetRect();
+  const bw=380, bh=bub.offsetHeight||170;
+  drawSpots(rs||[]);
+  if(!rs){ bub.style.left=(640-bw/2)+"px"; bub.style.top=(440-bh/2)+"px"; return; }
+  const x1=Math.min(...rs.map(q=>q.x)), y1=Math.min(...rs.map(q=>q.y)), x2=Math.max(...rs.map(q=>q.x+q.w)), y2=Math.max(...rs.map(q=>q.y+q.h));
+  const r={x:x1,y:y1,w:x2-x1,h:y2-y1};
+  let x, y;
+  if(r.x+r.w+20+bw<1270){ x=r.x+r.w+20; y=r.y; }
+  else if(r.x-20-bw>10){ x=r.x-20-bw; y=r.y; }
+  else { x=Math.min(1270-bw, Math.max(10, r.x)); y = r.y+r.h+16+bh<870 ? r.y+r.h+16 : r.y-16-bh; }
+  x += st.bubbleDx || 0;
+  y = Math.min(870-bh, Math.max(10, y));
+  bub.style.left=x+"px"; bub.style.top=y+"px";
+}
+function gateMet(){
+  const st=seq[pos]; if(!st.gate) return true; if(done.has(st.id)) return true; return false;
+}
+function render(){
+  const st = seq[pos];
+  $("msg").innerHTML = st.text;
+  const ok = gateMet();
+  $("waitNote").hidden = ok || !st.wait; $("waitNote").textContent = st.wait||"";
+  $("next").disabled = !ok; $("next").classList.toggle("pulse", !!st.gate && ok);
+  $("next").textContent = pos===seq.length-1 ? "Finish" : "Next →";
+  $("back").disabled = pos===0; $("back").style.visibility = pos===0?"hidden":"visible";
+  $("count").textContent = `${pos+1} / ${seq.length}`;
+  placeGuide();
+  // side notes
+  $("noteTitle").textContent = `${pos+1}. ${st.title}`;
+  $("notePurpose").textContent = st.purpose;
+  const g = GADGETS[st.gadget];
+  $("noteGadget").innerHTML = `<span class="chip ${st.gadget==="core"?"core":""}">${st.gadget}</span>${g.requires?` 依赖 ${g.requires}`:""}`;
+  $("noteTarget").textContent = st.area ? "地图开放区域" : (st.target || "无（全屏置灰）");
+  $("noteUnlock").textContent = st.unlock.length ? st.unlock.join(", ") : "全部置灰";
+  $("noteGate").textContent = ({"run-any":"按 Run 并播完","run-success":"Run 成功","family-move":"点 Movement 标签","value":`选中 ${DIR_NAME[PRACTICE.value]}`})[st.gate] || "点 Next 或按 →";
+  $("noteEvent").textContent = st.event;
+  const cfg = {id:st.id, gadget:st.gadget, target:st.target, unlock:st.unlock, waitFor:st.gate||null};
+  if(g.requires) cfg.requires=[g.requires];
+  $("cfg").textContent = "{\n" + Object.entries(cfg).map(([k,v])=>`  ${k}: ${JSON.stringify(v)}`).join(",\n") + "\n}";
+  document.querySelectorAll("#steps button").forEach(b=>{ if(b.dataset.id===st.id) b.setAttribute("aria-current","step"); else b.removeAttribute("aria-current"); });
+}
+function go(i){ if(i<0||i>=seq.length) return; const from=pos; pos=i; setupStep(); render(); requestAnimationFrame(placeGuide);
+  if(seq[pos].celebrate && i>from) confetti(); }
+function confetti(){
+  stage.querySelector(".confetti")?.remove();
+  const layer=document.createElement("div"); layer.className="confetti"; layer.setAttribute("aria-hidden","true"); stage.appendChild(layer);
+  const W=1280, H=880, colors=["#2670d5","#13966c","#e0ac26","#df5987","#24a1ab","#e5743d"], reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  for(let i=0;i<168;i++){
+    const p=document.createElement("span"); if(i%5===0) p.className="spark";
+    p.style.color=colors[(Math.floor(i/2)+i*3)%colors.length];
+    const size=i%5===0?8:12+(i%3)*4; p.style.width=p.style.height=size+"px"; p.style.setProperty("--px",size+"px"); layer.appendChild(p);
+    const side=i%2?1:-1, spread=((i*47+23)%173)/173, lift=((i*31+11)%61)/61, fall=((i*23+7)%67)/67;
+    const sx=W*(side<0?.28:.72)+((i*7)%19-9)*2, sy=H*(.73+(i%7)*.008), ex=12+spread*(W-24), rise=H*(.32+lift*.45), ey=H*(.78+fall*.28);
+    const frames=Array.from({length:16},(_,k)=>{const t=k/15; return {transform:`translate(${Math.round(sx+(ex-sx)*Math.min(1,t*1.6))}px, ${Math.round(sy+(ey-sy)*t-4*rise*t*(1-t))}px)`, opacity:k===0||k===15?0:1, offset:t, easing:"steps(1, end)"};});
+    if(reduced){ p.style.transform=frames[6].transform; p.style.opacity="1"; } else p.animate(frames,{duration:860,delay:(i%6)*12,fill:"both"});
+  }
+  setTimeout(()=>layer.remove(), 950);
+}
+function onRunDone(ok){
+  const st = seq[pos];
+  if(st.gate==="run-any" || (st.gate==="run-success" && ok)) { done.add(st.id); }
+  if(st.gate==="run-success" && !ok){ $("status").textContent += " Try again: select north on the Movement tab, then press Run rule."; }
+  render();
+}
+
+/* ===== Side panel ===== */
+function renderSide(){
+  $("toggles").innerHTML = Object.entries(GADGETS).filter(([k])=>k!=="core").map(([k,g])=>
+    `<label><input type="checkbox" id="g-${k}" data-g="${k}" ${enabled[k]?"checked":""}><span>${g.label} <span class="chip">${k}</span><small>${g.desc}${g.requires?`；依赖 ${g.requires}`:""}</small></span></label>`).join("");
+  $("steps").innerHTML = STEPS.map((s,i)=>`<li class="${enabled[s.gadget]?"":"off"}"><button type="button" data-id="${s.id}" ${enabled[s.gadget]?"":"disabled"}><span class="n">${String(i+1).padStart(2,"0")}</span><span>${s.title}</span><span class="chip ${s.gadget==="core"?"core":""}">${s.gadget}</span></button></li>`).join("");
+}
+$("toggles").addEventListener("change", e=>{ const g=e.target.dataset.g; if(!g) return; const curId=seq[pos].id;
+  enabled[g]=e.target.checked; try{localStorage.setItem("7bh-sb-gadgets", JSON.stringify(enabled));}catch(err){}
+  buildSeq(); renderSide(); const k=seq.findIndex(s=>s.id===curId); go(k>=0?k:Math.min(pos,seq.length-1)); });
+$("steps").addEventListener("click", e=>{ const b=e.target.closest("button[data-id]"); if(!b) return;
+  const k=seq.findIndex(s=>s.id===b.dataset.id);
+  // jumping ahead marks earlier action steps as done so the screen state is consistent
+  seq.slice(0,k).forEach(s=>{ if(s.gate) done.add(s.id); }); go(k); });
+
+/* ===== Wiring ===== */
+$("run").onclick = play;
+$("prev").onclick = ()=>{ if(frameIx>0){ frameIx--; drawFrame(frames[frameIx]); } };
+$("nextStep").onclick = ()=>{ if(frameIx<frames.length-1){ frameIx++; drawFrame(frames[frameIx]); } };
+$("tab-role").onclick = ()=>{ rule.family="role"; renderRules(); };
+$("tab-move").onclick = ()=>{ rule.family="move"; renderRules(); const st=seq[pos]; if(st.gate==="family-move"){ done.add(st.id); render(); } };
+$("values").addEventListener("click", e=>{ const b=e.target.closest("button[data-v]"); if(!b) return; const v=b.dataset.v, s=rule.sel[rule.family];
+  s.has(v)?s.delete(v):s.add(v); clearInterval(timer); timer=null; $("run").disabled=false; resetRun(); renderRules(); drawFrame(frames[0]);
+  const st=seq[pos]; if(st.gate==="value" && rule.family===PRACTICE.family && s.has(PRACTICE.value)){ done.add(st.id); render(); } });
+$("back").onclick = ()=>go(pos-1);
+$("next").onclick = ()=>{ if(pos===seq.length-1){ done.clear(); go(0); return; } if(gateMet()) go(pos+1); };
+$("restart").onclick = ()=>{ done.clear(); go(0); };
+document.addEventListener("keydown", e=>{ if(e.target.closest("input,textarea")) return;
+  if(e.key==="ArrowLeft"){ e.preventDefault(); go(pos-1); }
+  if(e.key==="ArrowRight"){ e.preventDefault(); if(gateMet() && pos<seq.length-1) go(pos+1); } });
+
+function fit(){ const vp=$("viewport"); const k = vp.clientWidth/1280; stage.style.transform=`scale(${k})`; vp.style.height = 880*k+"px"; placeGuide(); }
+new ResizeObserver(fit).observe($("viewport"));
+buildSeq(); renderSide(); fit(); go(0);
+})();
+</script>
