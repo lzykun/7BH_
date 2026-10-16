@@ -2,7 +2,7 @@
 (function(){
 "use strict";
 
-if(window.location.hostname !== "555bighamsome.github.io") return;
+if(!["555bighamsome.github.io", "lzykun.github.io"].includes(window.location.hostname)) return;
 
 const url = new URL(window.location.href);
 const defaults = {

@@ -6,7 +6,10 @@ const SCHEMA_VERSION = "2.0";
 const WINDOW_NAME_PREFIX = "__ROBOT_STUDY_DATA__";
 const MAX_KEEPALIVE_BYTES = 60000;
 const params = new URLSearchParams(window.location.search);
-if(window.STUDY_CONFIG?.preview_only) params.set("preview", "1");
+// GitHub Pages previews never upload events, whatever the URL says.
+const PAGES_PREVIEW_HOST = ["555bighamsome.github.io", "lzykun.github.io"]
+  .includes(window.location.hostname);
+if(window.STUDY_CONFIG?.preview_only || PAGES_PREVIEW_HOST) params.set("preview", "1");
 const CONTEXT_KEYS = [
   "session", "assigned_condition", "assignment_arm", "assignment_source",
   "schedule", "mode", "condition", "continuation", "order", "trial", "v",
@@ -110,7 +113,7 @@ persistNavigationContext();
 
 const storageKey = "robot-study:" + sessionId;
 const participantCode = sessionId;
-const endpoint = (
+const endpoint = PAGES_PREVIEW_HOST ? null : (
   params.get("preview") === "1" || window.location.protocol === "file:" ? null : (
     document.querySelector('meta[name="study-data-endpoint"]')?.content ||
     (/^https?:$/.test(window.location.protocol) ? "record_result.php" : null)

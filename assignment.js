@@ -87,6 +87,10 @@ function showError(message){
 }
 
 async function assign(){
+  // On GitHub Pages, pages-preview.js reloads this page with preview=1;
+  // never contact the assignment server from there.
+  if(["555bighamsome.github.io", "lzykun.github.io"].includes(window.location.hostname) &&
+    params.get("preview") !== "1") return;
   if(!params.get("session") && !recruitmentId){
     try{
       const key = "robot-study:active-context:" + version;
