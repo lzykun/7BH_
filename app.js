@@ -1714,23 +1714,44 @@ function carryPracticeRuleIntoFirstTask(){
     event.detail?.ok && event.detail?.practice_requirement_met
   );
   if(!practice) return;
-  const field = simpleField(carry.family);
-  const value = field?.values.find(option => String(option.id) === String(carry.value));
-  if(!value) return;
+  const carried = carriedDraftRule(carry);
+  if(!carried) return;
+  // The other feature's draft goes into its own tab, but only after a tutorial
+  // Run solved the practice with it (none when those steps were turned off).
+  const alternative = window.GuidedTutorialConfig?.alternative;
+  const alternativeRun = alternative && events.slice(0, completedIndex).findLast(event =>
+    event.event_type === "tutorial_run" && event.detail?.tutorial_protocol === protocol &&
+    event.detail?.ok && event.detail?.alternative_requirement_met
+  );
+  const alternativeRule = alternativeRun && alternative.family !== carry.family ? carriedDraftRule(alternative) : null;
+  familyRuleDrafts = {move_dir:[], role:[]};
+  if(alternativeRule) familyRuleDrafts[alternative.family] = [alternativeRule.rule];
   activeRuleFamily = carry.family;
-  rules = [{id:nextRuleId++, action:"MOVE", conds:[simpleCondition(field, value)], editor:null}];
+  rules = [carried.rule];
+  const drafts = currentFamilyDrafts();
+  const draftValues = family => simpleSelectedValues(drafts[family], family).map(value => value.id);
   recordRuleEvent("practice_rule_carried_over", {
     automatic:true,
     source_event_id:practice.event_id,
+    source_alternative_event_id:alternativeRule ? alternativeRun.event_id : null,
     source_completion_event_id:completed.event_id,
     source_scene_id:practice.detail.scene_id,
     practice_protocol:protocol,
+    active_family:carry.family,
     carried_family:carry.family,
-    carried_value:value.id,
-    movement_values:carry.family === "move_dir" ? [value.id] : [],
-    role_values:carry.family === "role" ? [value.id] : [],
+    carried_value:carried.value.id,
+    movement_values:draftValues("move_dir"),
+    role_values:draftValues("role"),
+    family_drafts:{move_dir:draftValues("move_dir"), role:draftValues("role")},
+    family_draft_state:familyDraftMetrics(),
     rule_state:ruleMetricsState(),
   });
+}
+
+function carriedDraftRule(choice){
+  const field = simpleField(choice.family);
+  const value = field?.values.find(option => String(option.id) === String(choice.value));
+  return value ? {value, rule:{id:nextRuleId++, action:"MOVE", conds:[simpleCondition(field, value)], editor:null}} : null;
 }
 
 function resetRunAfterRuleEdit(){

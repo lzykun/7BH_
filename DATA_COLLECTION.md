@@ -53,7 +53,7 @@ by the server. An unsuccessful upload remains retryable. The questionnaire
 contains age, gender, engagement, difficulty, reported feature use and optional
 strategy text; generic UI events do not contain questionnaire field values.
 
-## Guided tutorial (`guided-interface-v1`, in development)
+## Guided tutorial (`guided-interface-v2`, in development)
 
 Reminder now opens `routes/task.html`. The guided tutorial, the comprehension
 questions and T1 all run on that page; `routes/tutorial.html` and
@@ -63,32 +63,49 @@ rejects task-stage events before `comprehension_passed`. Debrief and completion
 still require `tutorial_completed` and `comprehension_passed`.
 
 Every tutorial event has stage `tutorial` and `detail.tutorial_protocol:
-"guided-interface-v1"`; comprehension events have stage `comprehension`. Tutorial
+"guided-interface-v2"`; comprehension events have stage `comprehension`. Tutorial
 mode records no task events (`run_*`, `rule_value_*`, `rule_family_changed`,
 `task_*`, `first_type_*`); generic UI events carry the tutorial stage.
 
 | Event | When | Detail |
 | --- | --- | --- |
-| `tutorial_started` | First entry (not on resume) | `gadgets_enabled`, `gadgets_disabled`, `steps`, `step_count`, `practice`, `carry_into_first_task` |
-| `tutorial_step_viewed` | Each step shown | `step_id`, `step_number`, `step_count`, `direction` (`forward`, `back`, `resume`, `restart`), `previous_step_id`, `previous_step_ms`, `gadget`, `round`, `celebrated` |
+| `tutorial_started` | First entry (not on resume) | `gadgets_enabled`, `gadgets_disabled`, `steps`, `step_count`, `practice`, `alternative` (`{family:"role", value:"loader"}`, i.e. Type D), `carry_into_first_task` |
+| `tutorial_step_viewed` | Each step shown | `step_id`, `step_number`, `step_count`, `direction` (`forward`, `back`, `resume`, `restart`), `previous_step_id`, `previous_step_ms`, `gadget`, `round`, `celebrated` (true when that view fired confetti: good-job and type-good, each once per participant) |
 | `tutorial_step_completed` | An action gate is first met | `step_id`, `gate`, `step_ms`, `round` |
-| `tutorial_run` | Each Run in the tutorial | `step_id`, `scene_id`, `layout_source` (`v23-practice-mirrored-swapped-bays` on the conflict/practice map `tutorial_conflict_practice`, else null), `ok`, `reason`, `active_family`, `selected_values`, `practice_requirement_met`, `trigger`, `frame_total`, `feedback_title`, `feedback_observation`, `round` |
+| `tutorial_run` | Each Run in the tutorial | `step_id`, `scene_id`, `layout_source` (`v23-practice-mirrored-swapped-bays` on the conflict/practice map `tutorial_conflict_practice`, else null), `ok`, `reason`, `active_family`, `selected_values`, `practice_requirement_met` (solved with Movement west alone), `alternative_requirement_met` (solved with Type D alone), `trigger`, `frame_total`, `feedback_title`, `feedback_observation`, `round` |
 | `tutorial_rule_family_changed` | Type/Movement tab switch | `from_family`, `to_family`, `trigger`, `step_id`, `round` |
 | `tutorial_rule_value_toggled` | A value is selected or cleared | `family`, `value`, `selected`, `step_id`, `round` |
-| `tutorial_completed` | Finish on the last step | `step_id`, `steps`, `duration_ms`, `round`, `practice_rule`, `last_step_ms` |
+| `tutorial_completed` | Finish on the last step | `step_id`, `steps`, `duration_ms`, `round`, `practice_rule`, `alternative_rule` (null if the alternative-feature steps were off), `last_step_ms` |
 | `tutorial_stage_completed` | Right after each `tutorial_completed` (kept from v23) | `round` |
 | `tutorial_config_invalid` | The config fails validation | `errors` |
 | `comprehension_opened`, `comprehension_option_selected`, `comprehension_submitted`, `comprehension_passed` | As before | As before, plus `tutorial_protocol` and `round`; a failed submission adds `returned_to_tutorial: true` |
 | `comprehension_stage_completed` | Right after `comprehension_passed` (kept from v23) | `round` |
-| `practice_rule_carried_over` | Entering T1 (stage `task`) | `practice_protocol: "guided-interface-v1"`, `carried_family`, `carried_value`, `movement_values`, `role_values`, source event IDs |
+| `practice_rule_carried_over` | Entering T1 (stage `task`) | `practice_protocol: "guided-interface-v2"`, `active_family` (open tab, `move_dir`), `carried_family`, `carried_value` (the open tab's rule, west), `family_drafts` (`{move_dir:["W"], role:["loader"]}`; `role` is empty when the alternative-feature steps were off), `movement_values` and `role_values` (the two drafts), `family_draft_state` (masks per draft), `rule_state`, `source_event_id`, `source_alternative_event_id` (null without a Type D tutorial Run), `source_completion_event_id` |
 
 A failed comprehension check returns to tutorial step 1 with `round` + 1;
 completed actions stay completed. A reload resumes the last viewed tutorial
 step, reopens comprehension with saved answers, or restores T1.
 
+Steps (25 with every gadget on): the storyboard's steps through good-job, then
+the `alternative-feature` gadget (alt-intro, pick-type, select-type, type-run,
+type-good: the same practice map solved with Type D), then back-to-movement
+(core, shown only when alternative-feature is on), both-kept and end. The
+storyboard's two-tabs, one-rule and carry-over steps are removed. With
+`&guide_off=alternative-feature` (preview only) there are 19 steps and T1's Type
+tab starts empty.
+
+T1 opens on the Movement tab with west selected; its Type tab holds D. Only the
+open tab is used when Run is pressed.
+
 In the tutorial only the step's own choice responds (the Movement tab, then
-west); other tabs and values ignore clicks and keys and record nothing. The
-success confetti appears once per participant.
+west; later the Type tab, D, and the Movement tab again); other tabs and values
+ignore clicks and keys and record nothing. Each confetti step (good-job,
+type-good) fires once per participant, going forward only.
+
+`practice_rule_carried_over` changed in v2: `role_values` now lists the Type
+draft (D) rather than the open rule's Type values (always empty before), and
+`active_family`, `family_drafts`, `family_draft_state` and
+`source_alternative_event_id` are new.
 
 Known data notes for analysis:
 

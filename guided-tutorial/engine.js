@@ -11,8 +11,8 @@ const PROTOCOL = CONFIG?.protocol || null;
 const CHECKPOINT = "guided_tutorial";
 const BUBBLE_WIDTH = 380;
 const SPOT_PAD = 6;
-const GATES = new Set(["run-any", "run-success", "family-move", "value"]);
-const RULE_STATES = new Set(["none", "move-tab", "move-N"]);
+const GATES = new Set(["run-any", "run-success", "run-type-success", "family-move", "family-type", "value", "type-value"]);
+const RULE_STATES = new Set(["none", "move-tab", "move-N", "type-tab", "type-D", "move-both"]);
 
 const $ = id => document.getElementById(id);
 const data = () => window.StudyData;
@@ -23,11 +23,12 @@ let seq = [];
 let pos = 0;
 let done = new Set();
 let round = 1;
-let celebrated = false;
+let celebrated = new Set();
 let startedAt = 0;
 let stepViewedAt = 0;
 let viewedStepId = null;
 let lastPracticeRule = null;
+let lastAlternativeRule = null;
 let active = false;
 let placeTimer = null;
 
@@ -65,6 +66,7 @@ function validate(enabled){
   if(stepIds.size !== CONFIG.steps.length) errors.push("Step ids must be unique.");
   CONFIG.steps.forEach(step => {
     if(!CONFIG.gadgets[step.gadget]) errors.push(`Step "${step.id}" uses unknown gadget "${step.gadget}".`);
+    if(step.needs && !CONFIG.gadgets[step.needs]) errors.push(`Step "${step.id}" needs unknown gadget "${step.needs}".`);
     if(!CONFIG.maps[step.map]) errors.push(`Step "${step.id}" uses unknown map "${step.map}".`);
     if(!RULE_STATES.has(step.rule)) errors.push(`Step "${step.id}" has unknown rule state "${step.rule}".`);
     if(step.gate && !GATES.has(step.gate)) errors.push(`Step "${step.id}" has unknown gate "${step.gate}".`);
@@ -75,9 +77,14 @@ function validate(enabled){
       if(!/^(robot|value):/.test(target) && !CONFIG.targets[target]) errors.push(`Step "${step.id}" targets unknown "${target}".`);
     });
   });
-  const sequence = CONFIG.steps.filter(step => enabled[step.gadget]);
+  const sequence = stepsFor(enabled);
   if(!sequence.length) errors.push("No steps are enabled.");
   return errors;
+}
+
+// A step runs when its gadget is on and, if it names one, the gadget it "needs".
+function stepsFor(enabled){
+  return CONFIG.steps.filter(step => enabled[step.gadget] && (!step.needs || enabled[step.needs]));
 }
 
 function showConfigError(errors){
@@ -114,21 +121,36 @@ function applyLock(){
 // The step's own action is the only rule choice that can be clicked. Every
 // other tab and value (including already selected ones) ignores clicks and
 // keys and records nothing.
+// What a gate step asks for: a tab, or a value on a tab.
+function gateChoice(step){
+  const practice = CONFIG.practice;
+  const alternative = CONFIG.alternative;
+  switch(step?.gate){
+    case "family-move": return {tab:practice.family};
+    case "family-type": return {tab:alternative.family};
+    case "value": return {family:practice.family, value:practice.value};
+    case "type-value": return {family:alternative.family, value:alternative.value};
+    default: return null;
+  }
+}
+
+const hasValue = (state, family, value) => (state.values[family] || []).map(String).includes(String(value));
+
 function allowedChoice(){
   const step = seq[pos];
-  const practice = CONFIG.practice;
   if(!active || !step) return {};
+  const want = gateChoice(step);
+  if(!want) return {};
   const state = host.getRuleState();
-  if(step.gate === "family-move" && state.family !== practice.family) return {tab:practice.family};
-  if(step.gate === "value" && state.family === practice.family &&
-    !(state.values[practice.family] || []).map(String).includes(String(practice.value))) return {value:practice.value};
+  if(want.tab) return state.family !== want.tab ? {tab:want.tab} : {};
+  if(state.family === want.family && !hasValue(state, want.family, want.value)) return want;
   return {};
 }
 
 function choiceAllowed(control){
   const allowed = allowedChoice();
   if(control.classList.contains("rule-family-tab")) return !!allowed.tab && control.dataset.family === allowed.tab;
-  return !!allowed.value && control.dataset.family === CONFIG.practice.family &&
+  return !!allowed.value && control.dataset.family === allowed.family &&
     String(control.dataset.value) === String(allowed.value);
 }
 
@@ -141,7 +163,7 @@ function updateChoiceLock(){
   }
   const allowed = allowedChoice();
   const tab = allowed.tab ? `:not([data-family="${allowed.tab}"])` : "";
-  const value = allowed.value ? `:not([data-family="${CONFIG.practice.family}"][data-value="${allowed.value}"])` : "";
+  const value = allowed.value ? `:not([data-family="${allowed.family}"][data-value="${allowed.value}"])` : "";
   style.textContent = `body.guided-active .rule-family-tab${tab},body.guided-active .simple-value-button${value}{pointer-events:none;cursor:default;}`;
 }
 
@@ -158,18 +180,34 @@ function blockOtherChoices(event){
 
 function stepRuleState(step){
   const practice = CONFIG.practice;
-  const state = {family:step.rule === "none" ? "role" : practice.family, values:{move_dir:[], role:[]}};
-  if(step.rule === "move-N") state.values[practice.family] = [practice.value];
-  if(step.gate === "family-move" && done.has(step.id)) state.family = practice.family;
-  if(step.gate === "value" && done.has(step.id)) state.values[practice.family] = [practice.value];
-  return state;
+  const alternative = CONFIG.alternative;
+  const values = {move_dir:[], role:[]};
+  const withPractice = () => { values[practice.family] = [practice.value]; };
+  const withAlternative = () => { values[alternative.family] = [alternative.value]; };
+  // Type D stays in its tab after the participant selected it (none if the steps were turned off).
+  const alternativeChosen = seq.some(item => item.gate === "type-value" && done.has(item.id));
+  let family = "role";
+  if(step.rule === "move-tab") family = practice.family;
+  if(step.rule === "move-N"){ family = practice.family; withPractice(); }
+  if(step.rule === "type-tab"){ family = alternative.family; withPractice(); }
+  if(step.rule === "type-D"){ family = alternative.family; withPractice(); withAlternative(); }
+  if(step.rule === "move-both"){ family = practice.family; withPractice(); if(alternativeChosen) withAlternative(); }
+  if(done.has(step.id)){
+    if(step.gate === "family-move") family = practice.family;
+    if(step.gate === "family-type") family = alternative.family;
+    if(step.gate === "value") withPractice();
+    if(step.gate === "type-value") withAlternative();
+  }
+  return {family, values};
 }
 
-function practiceRequirementMet(state){
-  const practice = CONFIG.practice;
-  const values = state.values[practice.family] || [];
-  return state.family === practice.family && values.length === 1 && String(values[0]) === String(practice.value);
+function requirementMet(state, rule){
+  const values = state.values[rule.family] || [];
+  return state.family === rule.family && values.length === 1 && String(values[0]) === String(rule.value);
 }
+
+const practiceRequirementMet = state => requirementMet(state, CONFIG.practice);
+const alternativeRequirementMet = state => requirementMet(state, CONFIG.alternative);
 
 function setupStep(){
   const step = seq[pos];
@@ -228,8 +266,11 @@ function targetRects(){
     const rect = robotRect(step.target.slice(6), geometry);
     if(rect) rects.push(rect);
   }else{
+    // "value:V" is a value on the practice tab; "value:FAMILY:V" names the tab.
+    const [family, value] = step.target.split(":").length === 3
+      ? step.target.split(":").slice(1) : [CONFIG.practice.family, step.target.slice(6)];
     const node = step.target.startsWith("value:")
-      ? document.querySelector(`.simple-value-button[data-family="${CONFIG.practice.family}"][data-value="${step.target.slice(6)}"]`)
+      ? document.querySelector(`.simple-value-button[data-family="${family}"][data-value="${value}"]`)
       : element(step.target);
     if(node) rects.push(padded(relative(node.getBoundingClientRect(), geometry)));
   }
@@ -319,7 +360,8 @@ function render(){
 function saveCheckpoint(phase="tutorial"){
   data()?.saveCheckpoint(CHECKPOINT, {
     protocol:PROTOCOL, phase, step_id:seq[pos]?.id || null, done:[...done], round,
-    celebrated, started_at:startedAt, last_practice_rule:lastPracticeRule,
+    celebrated:[...celebrated], started_at:startedAt, last_practice_rule:lastPracticeRule,
+    last_alternative_rule:lastAlternativeRule,
   });
 }
 
@@ -336,8 +378,9 @@ function go(index, direction){
   render();
   requestAnimationFrame(placeGuide);
   let celebrate = false;
-  if(step.celebrate && direction === "forward" && !celebrated){
-    celebrated = true;
+  // Each celebrating step fires once per participant, going forward only (decision B4).
+  if(step.celebrate && direction === "forward" && !celebrated.has(step.id)){
+    celebrated.add(step.id);
     celebrate = true;
     const {wrap, width, height} = wrapGeometry();
     host.confetti($("guided-layer") || wrap, width, height);
@@ -401,15 +444,16 @@ function onRuleEvent(type, detail){
       from_family:detail.from_family, to_family:detail.to_family, trigger:detail.trigger || null,
       step_id:step.id, round,
     });
-    if(step.gate === "family-move" && detail.to_family === CONFIG.practice.family) complete(step, step.gate);
+    const want = gateChoice(step);
+    if(want?.tab && detail.to_family === want.tab) complete(step, step.gate);
   }else if(type === "rule_value_added" || type === "rule_value_removed"){
     record("tutorial_rule_value_toggled", {
       family:detail.family, value:detail.value, selected:type === "rule_value_added",
       step_id:step.id, round,
     });
     const state = host.getRuleState();
-    if(step.gate === "value" && state.family === CONFIG.practice.family &&
-      (state.values[CONFIG.practice.family] || []).map(String).includes(String(CONFIG.practice.value))) complete(step, step.gate);
+    const want = gateChoice(step);
+    if(want?.value && state.family === want.family && hasValue(state, want.family, want.value)) complete(step, step.gate);
     // As in the formal tasks, a rule edit leaves the board as it is (decision B2).
   }
   render();
@@ -421,14 +465,19 @@ function onRunComplete(result, feedback, trigger){
   if(!active || !step) return;
   const state = host.getRuleState();
   const practiceMet = result.ok && practiceRequirementMet(state);
+  const alternativeMet = result.ok && alternativeRequirementMet(state);
   record("tutorial_run", {
     step_id:step.id, scene_id:host.sceneId(), layout_source:CONFIG.maps[step.map].layout_source || null,
     ok:!!result.ok, reason:result.reason || null,
     active_family:state.family, selected_values:state.values,
-    practice_requirement_met:practiceMet, trigger, frame_total:Math.max(0, (result.frames?.length || 1) - 1),
+    practice_requirement_met:practiceMet, alternative_requirement_met:alternativeMet, trigger, frame_total:Math.max(0, (result.frames?.length || 1) - 1),
     feedback_title:feedback?.title || null, feedback_observation:feedback?.observation || null, round,
   });
   if(step.gate === "run-any") complete(step, step.gate);
+  if(step.gate === "run-type-success" && alternativeMet){
+    lastAlternativeRule = {family:state.family, values:state.values};
+    complete(step, step.gate);
+  }
   if(step.gate === "run-success"){
     if(practiceMet){
       lastPracticeRule = {family:state.family, values:state.values};
@@ -457,7 +506,7 @@ function finishTutorial(){
   const step = seq[pos];
   record("tutorial_completed", {
     step_id:step.id, steps:seq.map(item => item.id), duration_ms:Date.now() - startedAt, round,
-    practice_rule:lastPracticeRule, last_step_ms:Date.now() - stepViewedAt,
+    practice_rule:lastPracticeRule, alternative_rule:lastAlternativeRule, last_step_ms:Date.now() - stepViewedAt,
   });
   // Kept from the v23 stage pages for analysis continuity (decision B9).
   record("tutorial_stage_completed", {round});
@@ -482,7 +531,7 @@ function openComprehension(){
     },
     onFailed(){
       // Back to step 1. Actions already done stay done, so Next skips through.
-      // Confetti stays once per participant (decision B4).
+      // Confetti stays once per participant and step (decision B4).
       round += 1;
       data()?.setStage("tutorial");
       showGuide(true);
@@ -516,7 +565,7 @@ function start(options){
     document.body.classList.add("guided-active");
     return false;
   }
-  seq = CONFIG.steps.filter(step => enabled[step.gadget]);
+  seq = stepsFor(enabled);
   data()?.setStage(options.phase === "comprehension" ? "comprehension" : "tutorial");
   data()?.setContext({task_id:null, task_item_id:null, attempt_index:null, rulebook_revision:null});
   host.onRuleChange(onRuleEvent);
@@ -532,16 +581,17 @@ function start(options){
   if(resume){
     done = new Set(resume.done || []);
     round = resume.round || 1;
-    celebrated = !!resume.celebrated;
+    celebrated = new Set(Array.isArray(resume.celebrated) ? resume.celebrated : []);
     startedAt = resume.started_at || Date.now();
     lastPracticeRule = resume.last_practice_rule || null;
+    lastAlternativeRule = resume.last_alternative_rule || null;
   }else{
     startedAt = Date.now();
     record("tutorial_started", {
       gadgets_enabled:Object.keys(enabled).filter(id => enabled[id]),
       gadgets_disabled:Object.keys(enabled).filter(id => !enabled[id]),
       steps:seq.map(step => step.id), step_count:seq.length,
-      practice:{...CONFIG.practice}, carry_into_first_task:{...CONFIG.carryIntoFirstTask},
+      practice:{...CONFIG.practice}, alternative:{...CONFIG.alternative}, carry_into_first_task:{...CONFIG.carryIntoFirstTask},
     });
   }
   if(options.phase === "comprehension"){

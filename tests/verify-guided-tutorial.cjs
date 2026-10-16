@@ -45,7 +45,11 @@ assert.equal(practice.completedAgentIds.length, config.maps.m2.world.agents.leng
 for (const value of pool.vocabulary.movement.filter(v => v !== 'W')) {
   assert.equal(run('m2', 'move_dir', [value]).ok, false, `Movement ${value} alone fails on map 2`);
 }
+assert.deepEqual({ ...config.alternative }, { family: 'role', value: 'loader' }, 'Alternative-feature answer is Type D');
 assert.ok(run('m2', 'role', ['loader']).ok, 'Type D alone also solves map 2 (as in v23)');
+for (const value of pool.vocabulary.role.filter(v => v !== 'loader')) {
+  assert.equal(run('m2', 'role', [value]).ok, false, `Type ${value} alone fails on map 2`);
+}
 // Every Movement rule (all 256 value sets) that solves map 2 also solves T1, and vice versa.
 const t1 = normalizeTask({ ...structuredClone(pool.bank[pool.sequences['all-local'].materials[0]]), label: 'T1' });
 const movementSet = mask => pool.vocabulary.movement.filter((_, bit) => mask & (1 << bit));
@@ -68,7 +72,7 @@ for (const map of ['m1', 'm2']) {
 }
 
 // 2. Practice and carried rule use real vocabulary values.
-for (const rule of [config.practice, config.carryIntoFirstTask]) {
+for (const rule of [config.practice, config.alternative, config.carryIntoFirstTask]) {
   const values = rule.family === 'role' ? pool.vocabulary.role : pool.vocabulary.movement;
   assert.ok(values.includes(rule.value), `Vocabulary has ${rule.family}:${rule.value}`);
 }
@@ -77,11 +81,43 @@ for (const rule of [config.practice, config.carryIntoFirstTask]) {
 const storyboard = read('docs/guided-tutorial-storyboard.html');
 const block = (start, end) => storyboard.slice(storyboard.indexOf(start), storyboard.indexOf(end, storyboard.indexOf(start)) + end.length);
 const spec = vm.runInNewContext(`${block('const GADGETS = {', '\n};')}\n${block('const STEPS = [', '\n];')}\n({GADGETS, STEPS})`);
-assert.deepEqual(Object.keys(config.gadgets), Object.keys(spec.GADGETS), 'Same gadgets as the storyboard');
-for (const [id, gadget] of Object.entries(spec.GADGETS)) {
+// Approved structure change: the two-tabs, one-rule and carry-over steps are
+// replaced by the alternative-feature steps and both-kept.
+const removed = ['two-tabs', 'one-rule', 'carry-over'];
+const removedGadgets = ['two-tabs', 'carry-over'];
+assert.equal(JSON.stringify(Object.keys(config.gadgets)),
+  JSON.stringify([...Object.keys(spec.GADGETS).filter(id => !removedGadgets.includes(id)), 'alternative-feature']), 'Storyboard gadgets plus alternative-feature');
+for (const [id, gadget] of Object.entries(spec.GADGETS).filter(([id]) => !removedGadgets.includes(id))) {
   assert.equal(config.gadgets[id].requires, gadget.requires, `Gadget ${id} dependency`);
 }
-assert.equal(config.steps.length, spec.STEPS.length, 'Same number of steps as the storyboard');
+const kept = spec.STEPS.filter(step => !removed.includes(step.id));
+const added = {
+  'alt-intro': { after: 'good-job', gadget: 'alternative-feature', gate: undefined,
+    text: "You can always try the other feature. Let's solve the same map with <em>Type</em>." },
+  'pick-type': { gadget: 'alternative-feature', gate: 'family-type',
+    text: "Click <em>Type</em>. Your Movement selection is kept separately and won't change." },
+  'select-type': { gadget: 'alternative-feature', gate: 'type-value', target: 'value:role:loader',
+    text: 'Robot 1 is <em>Type D</em>. Select <em>D</em> so it waits.' },
+  'type-run': { gadget: 'alternative-feature', gate: 'run-type-success',
+    text: 'Press <em>Run rule</em>. Only the open tab is used, so this Run uses your Type rule.' },
+  'type-good': { gadget: 'alternative-feature', gate: undefined, celebrate: true,
+    text: 'That works too! Both features can solve a map.' },
+  'back-to-movement': { gadget: 'core', needs: 'alternative-feature', gate: 'family-move',
+    text: 'Click <em>Movement</em>. Your <em>west</em> selection is still there.' },
+  'both-kept': { gadget: 'core', gate: undefined,
+    text: 'Each tab keeps its own selections, and both are carried into the next task. The open tab is the rule every robot follows when you press Run.' },
+};
+const expectedIds = [...kept.map(step => step.id)];
+expectedIds.splice(expectedIds.indexOf('good-job') + 1, 0, ...Object.keys(added));
+assert.equal(JSON.stringify(config.steps.map(step => step.id)), JSON.stringify(expectedIds), 'Storyboard steps with the approved changes, in order');
+for (const [id, want] of Object.entries(added)) {
+  const step = config.steps.find(item => item.id === id);
+  for (const field of ['gadget', 'gate', 'target', 'celebrate', 'needs', 'text']) {
+    if (field in want) assert.equal(step[field], want[field], `New step ${id} ${field}`);
+  }
+  assert.equal(step.map, 'm2', `New step ${id} uses the practice map`);
+  assert.equal(step.wait, undefined, `New step ${id} has no wait note (none approved)`);
+}
 // Approved deviations from the storyboard: west instead of north, robot 1 waits,
 // and highlight areas fitted to the mirrored v23 practice map.
 const practiceArea = [[2, 2], [6, 6]];
@@ -100,12 +136,12 @@ const deviations = {
   },
 };
 const fields = ['id', 'gadget', 'map', 'rule', 'shown', 'target', 'area', 'targetAlso', 'unlock', 'gate', 'bubbleDx', 'celebrate', 'text', 'wait'];
-spec.STEPS.forEach((expected, index) => {
-  const actual = config.steps[index];
+kept.forEach(expected => {
+  const actual = config.steps.find(step => step.id === expected.id);
   for (const field of fields) {
     const want = deviations[expected.id]?.[field] ?? expected[field];
     assert.deepEqual(JSON.parse(JSON.stringify(actual[field] ?? null)), JSON.parse(JSON.stringify(want ?? null)),
-      `Step ${index + 1} (${expected.id}) ${field} matches the storyboard`);
+      `Step ${expected.id} ${field} matches the storyboard`);
   }
 });
 assert.ok(storyboard.includes(config.practiceRetryText.replace('west', 'north')), 'Retry text is the storyboard wording (with west)');
@@ -120,6 +156,9 @@ for (const id of Object.keys(config.gadgets).filter(id => id !== 'core')) {
   assert.equal(errors.length > 0, needed, `Turning off ${id}`);
 }
 assert.ok(guide.validate({ ...all, core: false }).length > 0, 'core cannot be turned off');
+// With alternative-feature off, its steps and back-to-movement drop out; both-kept stays.
+const noAlternative = config.steps.filter(step => step.gadget !== 'alternative-feature' && step.needs !== 'alternative-feature').map(step => step.id);
+assert.ok(!noAlternative.includes('back-to-movement') && noAlternative.includes('both-kept') && noAlternative.at(-1) === 'end');
 
 // 5. Every highlighted or greyed element exists on the task page (static) or is drawn by app.js.
 const taskHtml = read('routes/task.html');
@@ -131,6 +170,7 @@ const drawnByApp = {
   '.rule-family-tabs': /tabs\.className = "rule-family-tabs"/,
   '.simple-family-sections': /familySections\.className = "simple-family-sections/,
   '#rule-family-tab-move_dir': /tab\.id = `rule-family-tab-\$\{field\.predicate\}`/,
+  '#rule-family-tab-role': /tab\.id = `rule-family-tab-\$\{field\.predicate\}`/,
 };
 const selectors = [...Object.values(config.parts).flat(), ...Object.values(config.targets)];
 for (const selector of selectors) {
@@ -148,5 +188,5 @@ for (const id of ['guided-layer', 'guided-spot', 'guided-bubble', 'guided-messag
 const answers = vm.runInNewContext(`(${read('tutorial.js').match(/const COMPREHENSION_ANSWERS = (\{[^}]*\});/)[1]})`);
 assert.equal(JSON.stringify(context.window.GuidedComprehension.answers), JSON.stringify(answers), 'Comprehension answers match tutorial.js');
 
-console.log(`Verified guided tutorial: ${config.steps.length} steps match the storyboard, real-simulator maps, ` +
+console.log(`Verified guided tutorial: ${config.steps.length} steps (storyboard plus the approved changes), real-simulator maps, ` +
   `gadget dependencies, ${selectors.length} selectors and comprehension answers.`);

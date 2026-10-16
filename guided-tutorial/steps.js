@@ -88,6 +88,7 @@ const TARGETS = {
   ".rules":".rules-panel",
   "[data-part=tabs]":".rule-family-tabs",
   "#tab-move":"#rule-family-tab-move_dir",
+  "#tab-type":"#rule-family-tab-role",
   ".current":".simple-current-rule",
 };
 
@@ -96,9 +97,8 @@ const GADGETS = {
   fullscreen:{label:"Full-screen reminder"},
   features:{label:"Robot badges"},
   replay:{label:"Replay buttons"},
-  "two-tabs":{label:"Only one tab is used"},
   "match-outline":{label:"Green outline", requires:"select-value"},
-  "carry-over":{label:"Rule carries over", requires:"practice-run"},
+  "alternative-feature":{label:"Solve it with the other feature"},
 };
 
 const UNLOCK_RULES = ["board", "runbar", "status", "goals", "rules-head", "current", "context", "tabs", "values"];
@@ -126,8 +126,6 @@ const STEPS = [
     text:"You coordinate them with a <em>waiting rule</em>. When two robots meet, your rule decides which one waits."},
   {id:"features", gadget:"core", map:"m2", rule:"none", shown:"end", target:"[data-part=tabs]", unlock:["board", "runbar", "status", "goals", "rules-head", "current", "context", "tabs"],
     text:"A rule can use one of two robot features: <em>Type</em> (the letter) or <em>Movement</em> direction (the arrow)."},
-  {id:"two-tabs", gadget:"two-tabs", map:"m2", rule:"none", shown:"end", target:"[data-part=tabs]", unlock:["board", "runbar", "status", "goals", "rules-head", "current", "context", "tabs"],
-    text:"Only the tab that is open when you press Run is used. Each tab keeps its own selections."},
   {id:"pick-movement", gadget:"core", map:"m2", rule:"none", shown:"end", target:"#tab-move", unlock:["board", "runbar", "status", "goals", "rules-head", "current", "context", "tabs"], gate:"family-move",
     text:"Let's use Movement for this map. Click the <em>Movement</em> tab.", wait:"Click Movement to continue"},
   // Storyboard said north; west so the practice matches T1 (approved wording).
@@ -141,19 +139,34 @@ const STEPS = [
     text:"Press <em>Run rule</em> to test your rule.", wait:"Get both robots to their bays to continue"},
   {id:"good-job", gadget:"core", celebrate:true, map:"m2", rule:"move-N", shown:"end", target:"#board", area:[[2, 2], [6, 6]], unlock:UNLOCK_RULES,
     text:"<span class='key'>Good job!</span> Robot 1 waited, robot 2 passed, and both reached their bays in the same Run."},
-  {id:"one-rule", gadget:"core", map:"m2", rule:"move-N", shown:"end", target:".rules", unlock:UNLOCK_RULES,
-    text:"In each task you build <em>one rule</em>, and every robot follows it. A task is complete when every robot reaches its bay in the same Run."},
-  {id:"carry-over", gadget:"carry-over", map:"m2", rule:"move-N", shown:"end", target:".current", unlock:UNLOCK_RULES,
-    text:"When the next task starts, your rule <em>stays selected</em>. You can keep it or change it."},
+  // Alternative feature: the same map solved with Type, then back to Movement.
+  {id:"alt-intro", gadget:"alternative-feature", map:"m2", rule:"move-N", shown:"end", target:"[data-part=tabs]", unlock:UNLOCK_RULES,
+    text:"You can always try the other feature. Let's solve the same map with <em>Type</em>."},
+  {id:"pick-type", gadget:"alternative-feature", map:"m2", rule:"move-N", shown:"end", target:"#tab-type", unlock:UNLOCK_RULES, gate:"family-type",
+    text:"Click <em>Type</em>. Your Movement selection is kept separately and won't change."},
+  {id:"select-type", gadget:"alternative-feature", map:"m2", rule:"type-tab", shown:"end", target:"value:role:loader", bubbleDx:-200, unlock:UNLOCK_RULES, gate:"type-value",
+    text:"Robot 1 is <em>Type D</em>. Select <em>D</em> so it waits."},
+  {id:"type-run", gadget:"alternative-feature", map:"m2", rule:"type-D", shown:"start", target:"#board", area:[[2, 2], [6, 6]], targetAlso:".runbar", unlock:UNLOCK_RULES, gate:"run-type-success",
+    text:"Press <em>Run rule</em>. Only the open tab is used, so this Run uses your Type rule."},
+  {id:"type-good", gadget:"alternative-feature", celebrate:true, map:"m2", rule:"type-D", shown:"end", target:"#board", area:[[2, 2], [6, 6]], unlock:UNLOCK_RULES,
+    text:"That works too! Both features can solve a map."},
+  // Core, but only shown when the alternative-feature steps ran (there is no Type tab to come back from otherwise).
+  {id:"back-to-movement", gadget:"core", needs:"alternative-feature", map:"m2", rule:"type-D", shown:"end", target:"#tab-move", bubbleDx:-200, unlock:UNLOCK_RULES, gate:"family-move",
+    text:"Click <em>Movement</em>. Your <em>west</em> selection is still there."},
+  {id:"both-kept", gadget:"core", map:"m2", rule:"move-both", shown:"end", target:".rules", unlock:UNLOCK_RULES,
+    text:"Each tab keeps its own selections, and both are carried into the next task. The open tab is the rule every robot follows when you press Run."},
   {id:"end", gadget:"core", map:"m2", rule:"move-N", shown:"end", target:null, unlock:UNLOCK_RULES,
     text:"That's it! Next come a few quick questions, then your first task on the full warehouse map."},
 ];
 
 window.GuidedTutorialConfig = Object.freeze({
-  protocol:"guided-interface-v1",
+  protocol:"guided-interface-v2",
   // The practice answer. It must match T1's solution once the task set is final.
   practice:{family:"move_dir", value:"W"},
-  // The rule that is selected when T1 starts.
+  // The alternative-feature answer (Type D; "loader" is D's value id).
+  alternative:{family:"role", value:"loader"},
+  // The open tab and its rule when T1 starts. The alternative's draft is also
+  // carried into its own tab when the participant solved the practice with it.
   carryIntoFirstTask:{family:"move_dir", value:"W"},
   practiceRetryText:"Try again: select west on the Movement tab, then press Run rule.",
   labels:{back:"← Back", next:"Next →", finish:"Finish"},
