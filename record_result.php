@@ -65,4 +65,5 @@ foreach ($paths as $kind => $path) {
 }
 flock($lock, LOCK_UN);
 fclose($lock);
-echo json_encode(['ok'=>true, 'accepted'=>count($new), 'received'=>count($events), 'workflow_completed'=>$completed]);
+echo json_encode(['ok'=>true, 'accepted'=>count($new), 'received'=>count($events), 'workflow_completed'=>$completed,
+    'score_summary'=>studyScore($combined)]);

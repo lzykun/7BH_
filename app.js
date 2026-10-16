@@ -36,6 +36,10 @@ let taskReady = false;
 let trialStartRule = null;
 let activeRunId = null;
 const sceneGuidesSeen = new Set();
+// "tutorial" while the guided tutorial borrows this board and rule panel. In
+// that mode nothing here writes trial data; the guide records its own events.
+let taskMode = "task";
+let tutorialRuleListener = null;
 
 const $ = id => document.getElementById(id);
 const URL_PARAMS = window.StudyData?.params || new URLSearchParams(window.location.search);
@@ -52,6 +56,8 @@ const DEBUG_UI = URL_PARAMS.get("debug") === "1" ||
   window.location.hash.includes("debug");
 const ONBOARDING_STAGE = (URL_PARAMS.get("stage") || "").toLowerCase();
 const SKIP_TUTORIAL = URL_PARAMS.get("skipTutorial") === "1" || ONBOARDING_STAGE === "task";
+// Researchers can open T1 directly with ?preview=1&skipTutorial=1.
+const SKIP_GUIDED_TUTORIAL = window.SHUFFLE_PREVIEW.inspect || (PREVIEW_MODE && SKIP_TUTORIAL);
 // The experimental task is sequential by default. Designers can inspect every
 // scene with ?order=free or ?skipTutorial=1 without changing the participant flow.
 const ORDER_MODE = DEBUG_UI
@@ -92,14 +98,37 @@ if(PREVIEW_MODE && (requestedBranch === "movement" || requestedBranch === "role"
 
 const shiftStates = Object.fromEntries(TASKS.map(task => [
   task.id,
-  { visited:false, lastOk:null, testedRevision:null, attempts:0 },
+  { visited:false, lastOk:null, testedRevision:null, attempts:0, outcome:null },
 ]));
 
 function taskUnlocked(task){
   if(FREE_ORDER) return true;
   const index = TASKS.indexOf(task);
   if(index <= 0) return true;
-  return shiftStates[TASKS[index - 1].id].lastOk === true;
+  return !!shiftStates[TASKS[index - 1].id].outcome;
+}
+
+function trialSummary(){
+  return window.TrialPolicy.summarize(window.StudyData.snapshot().events, TASKS.length, window.STUDY_CONFIG.payment);
+}
+
+function taskEditorLocked(){
+  return taskMode === "task" && (!!shiftStates[scn.id].outcome || timer !== null);
+}
+
+function continueResolvedTrial(){
+  if(!shiftStates[scn.id].outcome || timer !== null) return;
+  $("task-failed-dialog")?.close();
+  if(curIndex === TASKS.length-1) showTaskCompletionDialog();
+  else switchTask(curIndex+1);
+}
+
+function showFailedTrialDialog(){
+  const dialog = $("task-failed-dialog");
+  if(!dialog || dialog.open) return;
+  $("task-failed-next").textContent = curIndex === TASKS.length-1 ? "View results" : "Next task";
+  dialog.showModal();
+  $("task-failed-next").focus();
 }
 
 function unlockedTasks(){
@@ -150,10 +179,14 @@ const MUTATING_RULE_EVENTS = new Set([
 ]);
 
 function recordRuleEvent(type, detail={}){
+  if(taskMode === "tutorial"){
+    tutorialRuleListener?.(type, {...detail, active_rule_family:activeRuleFamily});
+    return;
+  }
   const mutatesRule = MUTATING_RULE_EVENTS.has(type);
   if(mutatesRule){
     rulebookRevision += 1;
-    if(scn?.id && shiftStates[scn.id]){
+    if(scn?.id && shiftStates[scn.id] && !shiftStates[scn.id].outcome){
       shiftStates[scn.id].lastOk = null;
       shiftStates[scn.id].testedRevision = null;
     }
@@ -166,6 +199,7 @@ function recordRuleEvent(type, detail={}){
     continuation_condition:CONTINUATION_CONDITION,
     completion_protocol:RUN_COMPLETION_PROTOCOL,
     rule_editor_protocol:RULE_EDITOR_PROTOCOL,
+    outcome_protocol:window.STUDY_CONFIG.outcome_protocol,
     active_rule_family:activeRuleFamily,
     curriculum_branch:activeTaskBranch,
     shift_id:scn?.id || null,
@@ -197,7 +231,7 @@ function ruleMetricsState(){
 }
 
 function persistTaskProgress(){
-  if(!taskReady) return;
+  if(!taskReady || taskMode !== "task") return;
   window.StudyData?.saveCheckpoint("task", {
     version:window.SHARED_POOL.version, schedule:RAW_LIBRARY.schedule, branch:activeTaskBranch,
     completion_protocol:RUN_COMPLETION_PROTOCOL,
@@ -207,6 +241,7 @@ function persistTaskProgress(){
     material_order:TASKS.map(task => task.itemId), current_index:curIndex,
     rules, library, next_rule_id:nextRuleId, revision:rulebookRevision,
     shift_states:shiftStates,
+    outcome_protocol:window.STUDY_CONFIG.outcome_protocol,
     experiment_started_at:experimentStartedAt, trial_started_at:trialStartedAt,
     last_attempt_at:lastAttemptAt, trial_start_rule:trialStartRule,
     display_frame_index:frameIndex, active_run_id:activeRunId, last_rule_event_index:lastRuleEventIndex,
@@ -216,6 +251,7 @@ function persistTaskProgress(){
 function restoreTaskProgress(){
   const saved = window.StudyData?.checkpoint("task");
   if(!saved || saved.version !== window.SHARED_POOL.version || saved.schedule !== RAW_LIBRARY.schedule ||
+    saved.outcome_protocol !== window.STUDY_CONFIG.outcome_protocol ||
     saved.completion_protocol !== RUN_COMPLETION_PROTOCOL ||
     saved.rule_editor_protocol !== RULE_EDITOR_PROTOCOL ||
     !isPureFamilyRulebook(saved.rules, saved.active_rule_family) ||
@@ -231,6 +267,8 @@ function restoreTaskProgress(){
   nextRuleId = saved.next_rule_id;
   rulebookRevision = saved.revision;
   for(const task of TASKS) Object.assign(shiftStates[task.id], saved.shift_states?.[task.id] || {});
+  // Recover counters from durable Run events, not a possibly stale UI checkpoint.
+  trialSummary().trials.forEach((state,index)=>Object.assign(shiftStates[TASKS[index].id],state));
   experimentStartedAt = saved.experiment_started_at;
   trialStartedAt = saved.trial_started_at;
   lastAttemptAt = saved.last_attempt_at;
@@ -273,7 +311,7 @@ function stopTaskAnimation(reason){
   if(!timer) return;
   clearInterval(timer);
   timer = null;
-  window.StudyData?.record("run_animation_interrupted", {run_id:activeRunId,
+  if(taskMode === "task") window.StudyData?.record("run_animation_interrupted", {run_id:activeRunId,
     frame_index:frameIndex, frame_total:lastFrames.length-1, reason});
   activeRunId = null;
 }
@@ -732,6 +770,7 @@ function showScenePicker(){
 }
 
 function switchTask(index){
+  if(taskMode === "task" && timer !== null) return;
   if(!taskUnlocked(TASKS[index])) return;
   window.StudyData?.finishInspections("task-navigation");
   stopTaskAnimation("task-navigation");
@@ -803,7 +842,7 @@ function buildTabs(){
     button.className = `tab case-tab ${stateClass}` + (index === curIndex ? " active" : "");
     const mark = locked || !state.visited || state.lastOk === null ? "" : state.lastOk ? "✓" : "×";
     button.innerHTML = `<span class="scene-number">${task.label}</span><span class="scene-mark" aria-hidden="true">${mark}</span>`;
-    button.disabled = locked;
+    button.disabled = locked || (!FREE_ORDER && index !== curIndex && !!state.outcome) || timer !== null;
     button.title = locked
       ? `${task.label}: complete the previous task first`
       : !state.visited
@@ -823,7 +862,7 @@ function buildTabs(){
   renderSceneGuideButton();
   const visited = Object.values(shiftStates).filter(state => state.visited).length;
   const currentSolved = Object.values(shiftStates).filter(state =>
-    state.lastOk
+    state.outcome === "success"
   ).length;
   const caseSummary = $("case-summary");
   if(caseSummary){
@@ -1038,7 +1077,7 @@ function initialFrame(){
 function stateText(meta){
   if(!meta) return "Not run";
   if(meta.offDuty) return "Off duty";
-  if(meta.failed) return "Failed";
+  if(meta.failed) return "Stopped";
   if(meta.done) return "Complete";
   if(meta.waiting) return "Waiting by rule";
   if(meta.step_count === null || meta.step_count === undefined) return "Not run";
@@ -1576,6 +1615,7 @@ function familyDraftMetrics(){
 }
 
 function switchRuleFamily(family, trigger="click"){
+  if(taskEditorLocked()) return;
   if(!["move_dir", "role"].includes(family) || family === activeRuleFamily) return;
   window.StudyData?.finishInspections("rule-family-switch");
   const before = ruleMetricsState();
@@ -1593,7 +1633,7 @@ function switchRuleFamily(family, trigger="click"){
   });
   resetRunAfterRuleEdit();
   renderRules();
-  window.StudyData?.record("rule_representation_changed", {
+  if(taskMode === "task") window.StudyData?.record("rule_representation_changed", {
     before:before.representation, after:ruleMetricsState().representation,
     source:"tab-switch", rule_state:ruleMetricsState(),
   });
@@ -1691,36 +1731,64 @@ function carryPracticeRuleIntoFirstTask(){
     event.event_type === "run_completed" || MUTATING_RULE_EVENTS.has(event.event_type)
   ))) return;
 
-  const protocol = "type-only-d-mirror-v1";
+  // The guided tutorial's config names the protocol and the rule carried into T1.
+  const protocol = window.GuidedTutorialConfig?.protocol;
+  const carry = window.GuidedTutorialConfig?.carryIntoFirstTask;
+  if(!protocol || !carry) return;
   const completedIndex = events.findLastIndex(event => event.event_type === "tutorial_completed");
   const completed = events[completedIndex];
-  if(completed?.detail?.practice_protocol !== protocol) return;
-  // Use the last tested practice rule, not an assumed default or an earlier success.
-  const practice = events.slice(0, completedIndex).findLast(event =>
-    event.event_type === "tutorial_run" && event.detail?.tutorial_page === "simple_practice"
-  );
-  const detail = practice?.detail;
-  const typeValues = detail?.selected_values?.role;
-  if(!detail?.ok || !detail.practice_requirement_met || detail.practice_protocol !== protocol ||
-    detail.scene_id !== "tutorial_type_d_wait_practice" ||
-    detail.simple_representation !== "pure_type" ||
-    !Array.isArray(typeValues) || typeValues.length !== 1 || typeValues[0] !== "loader" ||
-    !Array.isArray(detail.selected_values.move_dir) || detail.selected_values.move_dir.length) return;
-  const field = simpleField("role");
-  const value = field?.values.find(option => option.id === typeValues[0]);
-  if(!value) return;
-  activeRuleFamily = "role";
-  rules = [{id:nextRuleId++, action:"MOVE", conds:[simpleCondition(field, value)], editor:null}];
+  if(completed?.detail?.tutorial_protocol !== protocol) return;
+  // Match each draft to the successful tutorial Run that actually tested it.
+  const testedRun = choice => events.slice(0, completedIndex).findLast(event => {
+    const detail = event.detail;
+    const values = detail?.selected_values?.[choice.family];
+    return event.event_type === "tutorial_run" && detail?.tutorial_protocol === protocol &&
+      detail.ok && (detail.practice_requirement_met || detail.alternative_requirement_met) &&
+      detail.active_family === choice.family && Array.isArray(values) &&
+      values.length === 1 && String(values[0]) === String(choice.value);
+  });
+  const practice = testedRun(carry);
+  if(!practice) return;
+  const carried = carriedDraftRule(carry);
+  if(!carried) return;
+  // The other feature's draft goes into its own tab, but only after a tutorial
+  // Run solved the practice with it (none when those steps were turned off).
+  const alternative = [window.GuidedTutorialConfig.practice, window.GuidedTutorialConfig.alternative]
+    .find(choice => choice && choice.family !== carry.family);
+  const alternativeRun = alternative && testedRun(alternative);
+  const alternativeRule = alternativeRun ? carriedDraftRule(alternative) : null;
+  familyRuleDrafts = {move_dir:[], role:[]};
+  if(alternativeRule) familyRuleDrafts[alternative.family] = [alternativeRule.rule];
+  activeRuleFamily = carry.family;
+  rules = [carried.rule];
+  const drafts = currentFamilyDrafts();
+  const draftValues = family => simpleSelectedValues(drafts[family], family).map(value => value.id);
   recordRuleEvent("practice_rule_carried_over", {
     automatic:true,
     source_event_id:practice.event_id,
+    source_alternative_event_id:alternativeRule ? alternativeRun.event_id : null,
+    source_family_event_ids:{
+      [carry.family]:practice.event_id,
+      ...(alternativeRule ? {[alternative.family]:alternativeRun.event_id} : {}),
+    },
     source_completion_event_id:completed.event_id,
-    source_scene_id:detail.scene_id,
+    source_scene_id:practice.detail.scene_id,
     practice_protocol:protocol,
-    movement_values:[],
-    role_values:typeValues.slice(),
+    active_family:carry.family,
+    carried_family:carry.family,
+    carried_value:carried.value.id,
+    movement_values:draftValues("move_dir"),
+    role_values:draftValues("role"),
+    family_drafts:{move_dir:draftValues("move_dir"), role:draftValues("role")},
+    family_draft_state:familyDraftMetrics(),
     rule_state:ruleMetricsState(),
   });
+}
+
+function carriedDraftRule(choice){
+  const field = simpleField(choice.family);
+  const value = field?.values.find(option => String(option.id) === String(choice.value));
+  return value ? {value, rule:{id:nextRuleId++, action:"MOVE", conds:[simpleCondition(field, value)], editor:null}} : null;
 }
 
 function resetRunAfterRuleEdit(){
@@ -1739,6 +1807,7 @@ function resetRunAfterRuleEdit(){
 }
 
 function toggleSimpleValue(field, value){
+  if(taskEditorLocked()) return;
   if(field.predicate !== activeRuleFamily) return;
   const representationBefore = simpleRuleState().representation;
   const index = rules.findIndex(rule =>
@@ -1770,6 +1839,7 @@ function toggleSimpleValue(field, value){
   resetRunAfterRuleEdit();
   renderRules();
   const after = ruleMetricsState();
+  if(taskMode !== "task") return;
   if(after.representation !== representationBefore) window.StudyData?.record("rule_representation_changed", {
     before:representationBefore, after:after.representation, rule_state:after,
   });
@@ -1880,7 +1950,7 @@ function renderSimpleRuleEditor(){
   const count = $("rule-count");
   if(count) count.textContent = `${state.valueCount} value${state.valueCount === 1 ? "" : "s"}`;
   const runButton = $("run");
-  if(runButton) runButton.disabled = false;
+  if(runButton) updateContinueButton();
   renderRuleMatchPreview();
   buildTabs();
 }
@@ -2153,7 +2223,7 @@ function setStatus(text, kind){
 }
 
 function showFirstRunGuidance(){
-  const visible = curIndex === 0 && shiftStates[scn.id].attempts === 0;
+  const visible = taskMode === "task" && curIndex === 0 && shiftStates[scn.id].attempts === 0;
   $("run")?.classList.toggle("is-guided", visible);
   if(!visible){
     if($("status").classList.contains("run-guidance-only")) setStatus("", "");
@@ -2427,7 +2497,9 @@ function setRunFeedback(result, showSuccess=true){
     title.append(progress);
   }
   updateContinueButton();
-  if(result?.ok && showSuccess){
+  if(showSuccess && taskMode === "task" && shiftStates[scn.id].outcome === "failed"){
+    showFailedTrialDialog();
+  }else if(result?.ok && showSuccess && taskMode === "task"){
     if(curIndex === TASKS.length - 1) showTaskCompletionDialog();
     else showTaskSuccessDialog();
   }
@@ -2437,9 +2509,23 @@ function setRunFeedback(result, showSuccess=true){
 function updateContinueButton(){
   const runButton = $("run");
   if(runButton){
-    runButton.textContent = lastResult?.ok ? "Run again" : "Run rule";
+    const state = shiftStates[scn.id];
+    const resolved = taskMode === "task" && state?.outcome;
+    runButton.textContent = resolved ? (curIndex === TASKS.length-1 ? "View results" : "Next task") : "Run rule";
+    runButton.disabled = taskMode === "task" && timer !== null;
     runButton.classList.toggle("primary", !lastResult?.ok);
     runButton.classList.toggle("secondary-run", !!lastResult?.ok);
+    const budget = $("run-budget");
+    if(budget){
+      budget.hidden = taskMode !== "task";
+      const left = Math.max(0,window.TrialPolicy.LIMIT-(state?.attempts || 0));
+      const solved = resolved && state.outcome === "success";
+      budget.dataset.state = solved ? "solved" : left === 0 ? "empty" : left === 1 ? "last" : left <= 3 ? "low" : "ready";
+      $("run-budget-number").textContent = solved ? "\u2713" : String(left);
+      $("run-budget-label").textContent = solved ? "Solved" : left === 1 ? "Run left" : "Runs left";
+      budget.querySelectorAll(".run-budget-track i").forEach((pip,index)=>pip.classList.toggle("is-used", index >= left));
+    }
+    document.querySelectorAll(".simple-value-button,.rule-family-tab").forEach(button=>{button.disabled=taskEditorLocked();});
   }
 }
 
@@ -2467,15 +2553,27 @@ function showSuccessConfetti(dialog){
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if(window.StudyData?.snapshot().events.some(event =>
     event.event_type === "task_success_confetti_shown" && event.detail?.run_id === run.run_id)) return;
+  const count = renderSuccessConfetti(dialog, innerWidth, innerHeight);
+  window.StudyData?.record("task_success_confetti_shown", {
+    run_id:run.run_id, completed_trial_index:curIndex + 1,
+    animation:"pixel-popup-confetti-v2", animated:!reducedMotion,
+    particle_count:count, duration_ms:920,
+  });
+}
+
+// Draws the success confetti into container over a width x height area and
+// returns the particle count. The guided tutorial reuses it for "Good job".
+function renderSuccessConfetti(container, width, height){
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   clearSuccessConfetti();
   const layer = document.createElement("div");
   layer.className = "task-success-confetti";
   layer.setAttribute("aria-hidden", "true");
-  dialog.appendChild(layer);
+  container.appendChild(layer);
   successConfettiLayer = layer;
   const colors = ["#2670d5", "#13966c", "#e0ac26", "#df5987", "#24a1ab", "#e5743d"];
   const count = 168;
-  const particleScale = Math.min(1, Math.max(.65, innerWidth / 800));
+  const particleScale = Math.min(1, Math.max(.65, width / 800));
   // Deterministic decoration leaves the experiment's random state untouched.
   for(let index=0; index<count; index++){
     const particle = document.createElement("span");
@@ -2490,11 +2588,11 @@ function showSuccessConfetti(dialog){
     const spread = ((index * 47 + 23) % 173) / 173;
     const lift = ((index * 31 + 11) % 61) / 61;
     const fall = ((index * 23 + 7) % 67) / 67;
-    const startX = innerWidth * (side < 0 ? .28 : .72) + ((index*7)%19 - 9)*2;
-    const startY = innerHeight * (.73 + (index % 7)*.008);
-    const endX = 12 + spread * (innerWidth - 24);
-    const rise = innerHeight * (.32 + lift*.45);
-    const endY = innerHeight * (.78 + fall*.28);
+    const startX = width * (side < 0 ? .28 : .72) + ((index*7)%19 - 9)*2;
+    const startY = height * (.73 + (index % 7)*.008);
+    const endX = 12 + spread * (width - 24);
+    const rise = height * (.32 + lift*.45);
+    const endY = height * (.78 + fall*.28);
     const frames = Array.from({length:16}, (_, step) => {
       const t = step / 15;
       const x = Math.round(startX + (endX-startX)*Math.min(1,t*1.6));
@@ -2509,12 +2607,8 @@ function showSuccessConfetti(dialog){
       particle.animate(frames, {duration:860, delay:(index % 6)*12, fill:"both"});
     }
   }
-  window.StudyData?.record("task_success_confetti_shown", {
-    run_id:run.run_id, completed_trial_index:curIndex + 1,
-    animation:"pixel-popup-confetti-v2", animated:!reducedMotion,
-    particle_count:count, duration_ms:920,
-  });
   successConfettiTimer = setTimeout(clearSuccessConfetti, 950);
+  return count;
 }
 
 function showTaskSuccessDialog(){
@@ -2575,17 +2669,27 @@ async function saveBeforeDebrief(){
 }
 
 function showTaskCompletionDialog(){
+  const summary = trialSummary();
+  if(!summary.all_resolved){
+    setStatus("Finish the remaining tasks before the final questions.", "");
+    return;
+  }
   const backdrop = $("task-complete-backdrop");
   if(!backdrop) return;
   if(!completionDialogOpen){
     completionDialogOpen = true;
     recordRuleEvent("task_sequence_completed", {
-      completed_tasks:TASKS.length,
+      completed_tasks:summary.resolved_tasks,
+      successful_tasks:summary.successful_tasks,
+      failed_tasks:summary.failed_tasks,
+      outcome_protocol:window.STUDY_CONFIG.outcome_protocol,
+      payment_summary:summary,
       assigned_condition:URL_PARAMS.get("assigned_condition"),
     });
   }
   backdrop.hidden = false;
-  showSuccessConfetti(backdrop.querySelector(".task-complete-dialog"));
+  $("task-complete-message").textContent = `All robots made it home in ${summary.successful_tasks} of ${summary.trials.length} tasks. ${window.TrialPolicy.paymentText(summary)}`;
+  if(shiftStates[scn.id].outcome === "success") showSuccessConfetti(backdrop.querySelector(".task-complete-dialog"));
   saveBeforeDebrief();
 }
 
@@ -2632,7 +2736,7 @@ function showFrameAt(index, updateStatus=true, source="automatic"){
   if(!lastFrames.length) return;
   frameIndex = Math.max(0, Math.min(index, lastFrames.length - 1));
   renderFrame(lastFrames[frameIndex]);
-  window.StudyData?.record("task_simulation_step", {
+  if(taskMode === "task") window.StudyData?.record("task_simulation_step", {
     source,
     frame_index:frameIndex,
     frame_total:lastFrames.length - 1,
@@ -2695,6 +2799,13 @@ function libraryNorms(){
 }
 
 function play(trigger="manual"){
+  if(taskMode === "tutorial"){
+    playTutorialRun(trigger);
+    return;
+  }
+  if(timer !== null) return;
+  if(shiftStates[scn.id].outcome){continueResolvedTrial();return;}
+  if(shiftStates[scn.id].attempts >= window.TrialPolicy.LIMIT) return;
   if(!isPureFamilyRulebook(rules, activeRuleFamily)){
     window.StudyData?.record("run_rejected", {reason:"mixed-or-invalid-rule", active_rule_family:activeRuleFamily});
     setStatus("Choose a rule using one feature only.", "bad");
@@ -2742,10 +2853,9 @@ function play(trigger="manual"){
   const availableBefore = new Set(unlockedTasks().map(task => task.id));
   const shiftState = shiftStates[scn.id];
   shiftState.visited = true;
-  shiftState.lastOk = result.ok;
+  Object.assign(shiftState,window.TrialPolicy.apply(shiftState,result.ok));
   shiftState.testedRevision = rulebookRevision;
-  shiftState.attempts += 1;
-  if(!FREE_ORDER && result.ok){
+  if(!FREE_ORDER && shiftState.outcome){
     const newlyUnlocked = unlockedTasks().filter(task => !availableBefore.has(task.id));
     if(newlyUnlocked.length){
       result.curriculumMessage =
@@ -2756,7 +2866,7 @@ function play(trigger="manual"){
         unlocked_by_shift_id:scn.id,
       }));
     }else if(unlockedTasks().length === TASKS.length &&
-             TASKS.every(task => shiftStates[task.id].lastOk)){
+             TASKS.every(task => shiftStates[task.id].outcome)){
       result.curriculumMessage = "Curriculum complete.";
     }
   }
@@ -2788,6 +2898,9 @@ function play(trigger="manual"){
     task_item_id:scn.itemId,
     shift_label: scn.label,
     shift_attempt_index:shiftState.attempts,
+    max_runs_per_trial:window.TrialPolicy.LIMIT,
+    trial_outcome:shiftState.outcome,
+    outcome_protocol:window.STUDY_CONFIG.outcome_protocol,
     global_attempt_index:runs.length + 1,
     rulebook_revision:rulebookRevision,
     rule_summary: ruleSummary(),
@@ -2828,6 +2941,11 @@ function play(trigger="manual"){
   };
   runs.push(record);
   window.StudyData?.record("run_completed", record);
+  if(shiftState.outcome) window.StudyData.record("trial_resolved", {
+    outcome:shiftState.outcome, run_id:runId, attempts:shiftState.attempts,
+    carried_rule:ruleMetricsState(), family_draft_state:familyDraftMetrics(),
+    successful_tasks:trialSummary().successful_tasks,
+  });
   for(const [type, condition] of [["first_type_rule_run", simpleState.roleMask > 0], ["first_mixed_rule_run", simpleState.representation === "mixed"], ["first_pure_type_rule_run", simpleState.representation === "pure_type"]]){
     if(condition && !window.StudyData?.snapshot().events.some(event => event.event_type === type)) window.StudyData?.record(type, {run_id:runId, rule_state:ruleMetricsState()});
   }
@@ -2845,12 +2963,15 @@ function play(trigger="manual"){
     if(frameIndex >= lastFrames.length - 1){
       clearInterval(timer);
       timer = null;
+      buildTabs();
       window.StudyData?.record("run_animation_completed", {run_id:runId, frame_total:lastFrames.length-1});
       activeRunId = null;
       persistTaskProgress();
       setRunFeedback(result);
     }
   }, 360);
+  updateContinueButton();
+  buildTabs();
   persistTaskProgress();
 }
 
@@ -2949,6 +3070,147 @@ function initializeTutorial(){
   });
 }
 
+// Runs the tutorial scene with the real simulator and animation. Nothing is
+// added to runs or shiftStates; the guide hears about the result instead.
+let tutorialRunListener = null;
+function playTutorialRun(trigger){
+  stopTaskAnimation("new-run");
+  const runButton = $("run");
+  if(runButton){
+    runButton.textContent = "Run rule";
+    runButton.classList.add("primary");
+    runButton.classList.remove("secondary-run", "is-guided");
+  }
+  const norms = currentNorms();
+  const result = simulateLocalContinuation(scn, norms, new Set());
+  result.testedNorms = norms.map(norm => ({
+    action:norm.action,
+    feedbackLabel:norm.feedbackLabel,
+    conds:norm.conds.map(condition => ({...condition})),
+  }));
+  lastResult = result;
+  lastFrames = result.frames || [];
+  frameIndex = 0;
+  if(lastFrames.length) showFrameAt(0, false, "run-start");
+  setStatus("Running...", "");
+  timer = setInterval(() => {
+    if(frameIndex < lastFrames.length - 1){
+      showFrameAt(frameIndex + 1, false, "automatic");
+    }
+    if(frameIndex >= lastFrames.length - 1){
+      clearInterval(timer);
+      timer = null;
+      const feedback = setRunFeedback(result);
+      tutorialRunListener?.(result, feedback, trigger);
+    }
+  }, 360);
+}
+
+function tutorialRuleState(){
+  const drafts = currentFamilyDrafts();
+  return {
+    family:activeRuleFamily,
+    values:Object.fromEntries(Object.entries(drafts).map(([family, draft]) =>
+      [family, simpleSelectedValues(draft, family).map(value => value.id)])),
+  };
+}
+
+function tutorialNorms(state){
+  const field = simpleField(state.family);
+  return (state.values?.[state.family] || []).map(id => ({
+    action:"MOVE",
+    feedbackLabel:"Your current rule",
+    conds:[{p:field.predicate, v:id, negated:false}],
+  }));
+}
+
+// The guided tutorial draws with this board and rule panel through TaskHost.
+window.TaskHost = Object.freeze({
+  get mode(){ return taskMode; },
+  get cellSize(){ return CELL; },
+  enterTutorialMode(){
+    stopTaskAnimation("tutorial-start");
+    taskMode = "tutorial";
+    document.body.classList.add("task-tutorial-mode");
+    buildTabs();
+  },
+  showScene(rawScene){
+    stopTaskAnimation("tutorial-scene");
+    scn = normalizeTask(structuredClone(rawScene));
+    lastResult = null;
+    lastFrames = [];
+    frameIndex = 0;
+    buildBoard();
+    renderRuleMatchPreview();
+    updateContinueButton();
+    setStatus("", "");
+  },
+  sceneId(){ return scn?.id || null; },
+  // A number shows that frame of the last run; an object is drawn as given.
+  showFrame(frame){
+    if(typeof frame === "number") showFrameAt(frame, true, "tutorial");
+    else renderFrame(frame);
+  },
+  currentFrame(){ return lastFrames[frameIndex] || initialFrame(); },
+  frameInfo(){ return {index:frameIndex, total:Math.max(0, lastFrames.length - 1), running:timer !== null}; },
+  resetRun(){
+    stopTaskAnimation("tutorial-reset");
+    lastResult = null;
+    lastFrames = [];
+    frameIndex = 0;
+    renderFrame(initialFrame());
+    renderRuleMatchPreview();
+    updateContinueButton();
+    setStatus("", "");
+  },
+  showRunEnd(){
+    stopTaskAnimation("tutorial-show-end");
+    const result = window.TaskHost.simulate(null, tutorialRuleState());
+    lastResult = result;
+    lastFrames = result.frames || [];
+    showFrameAt(lastFrames.length - 1, true, "tutorial");
+    return result;
+  },
+  run(){ play("guide"); },
+  resetRunButton(){
+    const runButton = $("run");
+    if(!runButton) return;
+    runButton.textContent = "Run rule";
+    runButton.classList.add("primary");
+    runButton.classList.remove("secondary-run");
+  },
+  renderRuleEditor(){ renderRules(); },
+  getRuleState(){ return tutorialRuleState(); },
+  setRuleState(state){
+    stopTaskAnimation("tutorial-rule-state");
+    const drafts = {move_dir:[], role:[]};
+    for(const family of Object.keys(drafts)){
+      const field = simpleField(family);
+      drafts[family] = (state.values?.[family] || []).map(id => {
+        const value = field.values.find(option => String(option.id) === String(id));
+        return {id:nextRuleId++, action:"MOVE", conds:[simpleCondition(field, value)], editor:null};
+      });
+    }
+    familyRuleDrafts = drafts;
+    activeRuleFamily = state.family || "role";
+    rules = structuredClone(familyRuleDrafts[activeRuleFamily]);
+    renderRules();
+  },
+  onRuleChange(callback){ tutorialRuleListener = callback; },
+  onRunComplete(callback){ tutorialRunListener = callback; },
+  // Pure: simulate a scene (or the current tutorial scene) under a {family, values} rule.
+  simulate(rawScene, state){
+    const scene = rawScene ? normalizeTask(structuredClone(rawScene)) : scn;
+    const norms = tutorialNorms(state);
+    const result = simulateLocalContinuation(scene, norms, new Set());
+    result.testedNorms = norms;
+    return result;
+  },
+  runFeedback(result){ return buildRunFeedback(result); },
+  confetti(container, width, height){ return renderSuccessConfetti(container, width, height); },
+  fitViewport(){ fitTaskViewport(); },
+});
+
 function renderAll(){
   buildTabs();
   renderSceneGoal();
@@ -2989,6 +3251,38 @@ function resizeTaskLayout(){
 
 window.addEventListener("pagehide", () => {stopTaskAnimation("page-hidden"); persistTaskProgress();});
 
+// After comprehension is passed: leave tutorial mode and open T1 as v23 does,
+// with the practice rule from the guided tutorial carried in.
+function enterTaskAfterGuidedOnboarding(){
+  stopTaskAnimation("tutorial-complete");
+  clearSuccessConfetti();
+  taskMode = "task";
+  tutorialRuleListener = null;
+  tutorialRunListener = null;
+  document.body.classList.remove("task-tutorial-mode");
+  window.StudyData?.setStage("task");
+  scn = TASKS[curIndex];
+  activeRuleFamily = "role";
+  familyRuleDrafts = {move_dir:[], role:[]};
+  lastResult = null;
+  lastFrames = [];
+  frameIndex = 0;
+  window.StudyData?.setContext({
+    trial_index:curIndex + 1,
+    task_id:scn.id,
+    task_item_id:scn.itemId,
+    attempt_index:shiftStates[scn.id].attempts,
+    rulebook_revision:rulebookRevision,
+  });
+  rules = loadStarterRules(scn);
+  carryPracticeRuleIntoFirstTask();
+  trialStartRule = ruleMetricsState();
+  renderAll();
+  startTaskAfterTutorial();
+  recordTaskEntry("initial");
+  persistTaskProgress();
+}
+
 (async function initializeTask(){
 if(!await window.StudyData?.ready || !window.StudyData.requireStage("task")) return;
 const restored = restoreTaskProgress();
@@ -3010,6 +3304,8 @@ if(!TASKS.length){
   };
   $("task-complete-retry").onclick = saveBeforeDebrief;
   $("task-success-dialog").addEventListener("cancel", event => event.preventDefault());
+  $("task-failed-dialog").addEventListener("cancel", event => event.preventDefault());
+  $("task-failed-next").onclick = continueResolvedTrial;
   $("task-complete-debrief").onclick = async () => {
     const button = $("task-complete-debrief");
     if(button.disabled) return;
@@ -3034,8 +3330,12 @@ if(!TASKS.length){
   };
   $("export-json").onclick = exportJson;
   $("export-csv").onclick = exportCsv;
+  // The server rejects task-stage events before comprehension_passed, so the page
+  // opens in the stage of the guided onboarding phase it resumes.
+  const onboardingPhase = restored || SKIP_GUIDED_TUTORIAL || !window.GuidedTutorial
+    ? "task" : window.GuidedTutorial.phase();
   window.StudyData?.init({
-    stage:"task",
+    stage:onboardingPhase,
     trial_index:curIndex + 1,
     task_id:scn.id,
     task_item_id:scn.itemId,
@@ -3043,6 +3343,16 @@ if(!TASKS.length){
     rulebook_revision:rulebookRevision,
   });
   window.StudyData?.record("experimental_assignment_loaded", window.EXPERIMENT_ASSIGNMENT || {});
+  if(onboardingPhase !== "task"){
+    // T1 is entered (and recorded) only after the tutorial and comprehension.
+    taskReady = true;
+    window.TaskHost.enterTutorialMode();
+    renderAll();
+    window.ShufflePreview.install();
+    window.GuidedTutorial.start({host:window.TaskHost, phase:onboardingPhase,
+      onFinished:enterTaskAfterGuidedOnboarding});
+    return;
+  }
   if(!restored){
     rules = loadStarterRules(scn);
     carryPracticeRuleIntoFirstTask();

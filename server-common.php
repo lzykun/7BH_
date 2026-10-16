@@ -1,9 +1,12 @@
 <?php
 declare(strict_types=1);
 
-const STUDY_VERSION = '7bh-formal-v23';
+const STUDY_VERSION = '7bh-formal-v27';
 const STUDY_TRIAL_COUNT = 11;
-const STUDY_ARMS = ['all-local' => 'all-local', 'jump-2' => 'early-jump', 'jump-5' => 'late-jump'];
+const STUDY_MAX_RUNS = 10;
+const STUDY_BONUS_PENCE = 10;
+const STUDY_PUBLICATION_READY = true;
+const STUDY_ARMS = ['jump-2' => 'early-jump'];
 
 function fail(int $status, string $message): never
 {
@@ -14,6 +17,7 @@ function fail(int $status, string $message): never
 
 function studyRequest(int $limit): stdClass
 {
+    if (!STUDY_PUBLICATION_READY) fail(503, 'Local candidate: publication and payment configuration pending');
     $origin = getenv('STUDY_ALLOWED_ORIGIN') ?: 'https://bococo-81.inf.ed.ac.uk';
     header('Access-Control-Allow-Origin: ' . $origin);
     header('Access-Control-Allow-Methods: POST, OPTIONS');
@@ -118,10 +122,31 @@ function studyOrder(string $condition): array
     return array_merge(['T1', 'T2', 'T3', 'T4', 'T5'], $suffix);
 }
 
-function studyProgress(array $events, string $condition): bool
+// Call only after studyProgress has validated the complete event prefix.
+function studyScore(array $events): array
+{
+    $won = [];
+    $failed = [];
+    foreach ($events as $event) {
+        if ($event->stage !== 'task' || $event->event_type !== 'run_completed') continue;
+        if ($event->detail->ok) $won[$event->trial_index] = true;
+        elseif ($event->detail->shift_attempt_index === STUDY_MAX_RUNS) $failed[$event->trial_index] = true;
+    }
+    return ['successful_tasks'=>count($won), 'failed_tasks'=>count($failed),
+        'resolved_tasks'=>count($won)+count($failed), 'payment_configured'=>false, 'total_pence'=>null,
+        'bonus_configured'=>true, 'currency'=>'GBP', 'bonus_rate_pence'=>STUDY_BONUS_PENCE,
+        'bonus_pence'=>count($won)*STUDY_BONUS_PENCE, 'performance_pence'=>count($won)*STUDY_BONUS_PENCE,
+        'base_payment_source'=>'prolific-listing'];
+}
+
+function studyProgress(array $events, string $condition, ?array $solutions = null): bool
 {
     $consent = $reminder = $tutorial = $answers = $comprehension = $sequence = $debrief = $completed = false;
     $tasks = [];
+    $attempts = [];
+    $runIds = [];
+    $successful = [];
+    $solutions ??= json_decode((string)file_get_contents(__DIR__ . '/task-solutions.json'), true, 32, JSON_THROW_ON_ERROR);
     $order = studyOrder($condition);
     foreach ($events as $event) {
         $stage = $event->stage;
@@ -144,7 +169,7 @@ function studyProgress(array $events, string $condition): bool
             $tutorial = true;
         } elseif ($type === 'comprehension_submitted' && ($detail->passed ?? false) === true) {
             if ($stage !== 'comprehension') fail(422, 'Invalid comprehension stage');
-            foreach (['check1'=>'b','check2'=>'c','check3'=>'a','check4'=>'d'] as $key=>$value) {
+            foreach (['check1'=>'b','check2'=>'c','check3'=>'a','check4'=>'d','check5'=>'b','check6'=>'a','check7'=>'c'] as $key=>$value) {
                 if (($detail->responses->$key ?? null) !== $value) fail(422, 'Invalid comprehension answers');
             }
             $answers = true;
@@ -162,9 +187,33 @@ function studyProgress(array $events, string $condition): bool
                 if (!is_int($detail->$key ?? null) || $detail->$key < 0 || $detail->$key > 255) fail(422, 'Invalid rule mask');
             }
             for ($i=1; $i<$trial; $i++) if (!isset($tasks[$i])) fail(422, 'Previous task incomplete');
-            if ($detail->ok) $tasks[$trial] = true;
+            if (isset($tasks[$trial]) || ($attempts[$trial] ?? 0) >= STUDY_MAX_RUNS) fail(422, 'Trial already resolved');
+            if (isset($runIds[$detail->run_id])) fail(422, 'Repeated Run identifier');
+            $runIds[$detail->run_id] = true;
+            $attempts[$trial] = ($attempts[$trial] ?? 0) + 1;
+            if (($event->attempt_index ?? null) !== $attempts[$trial]
+                || ($detail->shift_attempt_index ?? null) !== $attempts[$trial]
+                || ($detail->outcome_protocol ?? null) !== 'ten-run-budget-v1') fail(422, 'Invalid attempt counter');
+            $family = $detail->active_rule_family ?? null;
+            if (!in_array($family, ['role','move_dir'], true)
+                || ($family === 'role' && $detail->movement_mask !== 0)
+                || ($family === 'move_dir' && $detail->role_mask !== 0)) fail(422, 'Pure family required');
+            $mask = $family === 'role' ? $detail->role_mask : $detail->movement_mask;
+            $correct = in_array($mask, $solutions[$order[$trial-1]][$family], true);
+            if ($detail->ok !== $correct) fail(422, 'Result disagrees with verified solution set');
+            $outcome = $correct ? 'success' : ($attempts[$trial] === STUDY_MAX_RUNS ? 'failed' : null);
+            if (($detail->trial_outcome ?? null) !== $outcome) fail(422, 'Invalid outcome');
+            if ($outcome !== null) $tasks[$trial] = $outcome;
+            if ($correct) $successful[$trial] = true;
+        } elseif ($type === 'trial_resolved') {
+            $trial = $event->trial_index ?? null;
+            if ($stage !== 'task' || !isset($tasks[$trial])
+                || ($detail->outcome ?? null) !== $tasks[$trial]
+                || ($detail->attempts ?? null) !== $attempts[$trial]) fail(422, 'Unverified trial outcome');
         } elseif ($type === 'task_sequence_completed') {
-            if ($stage !== 'task' || count($tasks) !== STUDY_TRIAL_COUNT) fail(422, 'Eleven successful tasks required');
+            if ($stage !== 'task' || count($tasks) !== STUDY_TRIAL_COUNT) fail(422, 'All trials must be resolved');
+            if (($detail->successful_tasks ?? null) !== count($successful)
+                || ($detail->failed_tasks ?? null) !== STUDY_TRIAL_COUNT-count($successful)) fail(422, 'Incorrect score');
             $sequence = true;
         } elseif ($type === 'debrief_responses_submitted') {
             if ($stage !== 'debrief' || !is_int($detail->age ?? null) || $detail->age < 18 || $detail->age > 100

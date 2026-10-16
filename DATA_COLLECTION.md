@@ -2,11 +2,12 @@
 
 ## Release and assignment
 
-Current release: `7bh-formal-v23`, deployment `7bh-eleven-type-jump-v23`.
-Formal sessions enter through `index.html` on Bococo. Server-side randomized
-blocks of three assign `all-local`, `jump-2` (Early jump), or `jump-5` (Late jump).
-Re-entry with the same recruitment identifier restores the same assignment.
-Balanced assignments do not guarantee balanced completed samples.
+Current release: `7bh-formal-v27`, deployment `7bh-early-only-type-coupled-bonus-v27`.
+Formal sessions enter through `index.html` on Bococo. The server assigns only
+`jump-2` (Early jump), including when another condition is requested. Re-entry
+with the same recruitment identifier restores the same assignment. The published
+preview also stays Early-only. All-local and Late jump remain in the task bank
+for offline validation and local development previews.
 
 The conditions share T1-T5, followed by these permutations of one task bank:
 
@@ -16,8 +17,9 @@ The conditions share T1-T5, followed by these permutations of one task bank:
 | Early jump | F, E, D, C, B, A | T6 |
 | Late jump | B, C, D, E, F, A | T11 |
 
-The critical repair is in Type, not Movement. Type-only tutorial practice carries
-D into T1. Type and Movement selections are retained separately, but only the
+The critical repair is in Type, not Movement. The guided tutorial demonstrates
+Movement, then finishes with a successful Type D Run and carries D into T1.
+Type and Movement selections are retained separately, but only the
 active tab contributes to a Run. Switching tabs and editing values are distinct
 events. A tab switch does not by itself establish a tested strategy shift.
 
@@ -42,7 +44,14 @@ robots are not carried into the next Run. Passing requires the current rule to
 solve the whole task from its initial state. Earlier cumulative-completion
 cohorts must not be interpreted using this criterion without replay validation.
 
-`task_sequence_completed` means all eleven tasks were passed. It is distinct
+`outcome_protocol: ten-run-budget-v1` limits each task to ten Runs. Every Run
+counts, including unchanged rules; replay does not count. Success on Run 10
+counts. An unsuccessful tenth Run resolves the task with outcome `failed`;
+the interface says that some robots did not make it home, and retains the last
+selections for the next task. `shift_attempt_index`, `trial_outcome` and
+`trial_resolved` preserve these distinctions for analysis.
+
+`task_sequence_completed` means all eleven tasks were resolved, not all passed. It is distinct
 from `debrief_responses_submitted` and `study_completed`. The completion code is
 shown only after the questionnaire and final event queue have been acknowledged
 by the server. An unsuccessful upload remains retryable. The questionnaire
@@ -51,7 +60,15 @@ strategy text; generic UI events do not contain questionnaire field values.
 
 ## Private storage and recovery
 
-Production v23 uses `STUDY_DATA_ROOT=/home/bococo81/server_data/7BH/v23`, outside
+The server validates the active pure-rule mask against `task-solutions.json`,
+rejects incorrect outcomes, repeated Run IDs, skipped attempts and Runs after
+resolution. `score_summary` records successful, unsuccessful and resolved task
+counts, plus `bonus_rate_pence: 10` and `bonus_pence: 10 * successful_tasks`.
+The base payment remains external to the task, as listed on Prolific;
+`total_pence` stays null when that base is not configured. These are records of
+earned bonus, not proof that a payment has been executed.
+
+Production v27 uses `STUDY_DATA_ROOT=/home/bococo81/server_data/7BH/v27`, outside
 `public_html`, with separate `events/`, `consent/`, `assignment/` and `locks/`
 directories. Earlier versions retain their own records. Directories use mode
 `0700`; record files use `0600`.
@@ -73,7 +90,7 @@ access configuration belongs in this repository.
 Configure the private, version-specific `STUDY_DATA_ROOT` explicitly; do not use
 the receiver's historical fallback for a new deployment. Configure
 `STUDY_ALLOWED_ORIGIN` when using a different host. Deny direct HTTP access to
-`server-common.php`, disable directory listings and keep server configuration
+`server-common.php` and `task-solutions.json`, disable directory listings and keep server configuration
 private. The production `.htaccess` is intentionally not distributed here.
 
 Before recruitment, verify consent, tutorial carry-over, comprehension, all

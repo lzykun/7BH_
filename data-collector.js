@@ -6,7 +6,10 @@ const SCHEMA_VERSION = "2.0";
 const WINDOW_NAME_PREFIX = "__ROBOT_STUDY_DATA__";
 const MAX_KEEPALIVE_BYTES = 60000;
 const params = new URLSearchParams(window.location.search);
-if(window.STUDY_CONFIG?.preview_only) params.set("preview", "1");
+// GitHub Pages previews never upload events, whatever the URL says.
+const PAGES_PREVIEW_HOST = ["555bighamsome.github.io", "lzykun.github.io"]
+  .includes(window.location.hostname);
+if(window.STUDY_CONFIG?.preview_only || PAGES_PREVIEW_HOST) params.set("preview", "1");
 const CONTEXT_KEYS = [
   "session", "assigned_condition", "assignment_arm", "assignment_source",
   "schedule", "mode", "condition", "continuation", "order", "trial", "v",
@@ -110,7 +113,7 @@ persistNavigationContext();
 
 const storageKey = "robot-study:" + sessionId;
 const participantCode = sessionId;
-const endpoint = (
+const endpoint = PAGES_PREVIEW_HOST ? null : (
   params.get("preview") === "1" || window.location.protocol === "file:" ? null : (
     document.querySelector('meta[name="study-data-endpoint"]')?.content ||
     (/^https?:$/.test(window.location.protocol) ? "record_result.php" : null)
@@ -325,10 +328,8 @@ async function acquireSession(){
 
 function workflow(){
   const has = type => state.events.some(event => event.event_type === type);
-  const successful = new Set(state.events.filter(event => event.stage === "task" && event.event_type === "run_completed" && event.detail?.ok).map(event => event.trial_index));
   const count = window.SHARED_POOL?.sequences?.[params.get("schedule")]?.materials.length || window.STUDY_CONFIG.trial_count;
-  const allTasks = Number.isInteger(count) && count > 0 &&
-    Array.from({length:count}, (_, index) => index + 1).every(index => successful.has(index));
+  const allTasks = Number.isInteger(count) && count > 0 && window.TrialPolicy.summarize(state.events,count).all_resolved;
   return {consent:has("consent_agreed"), reminder:has("reminder_acknowledged"),
     tutorial:has("tutorial_completed"), comprehension:has("comprehension_passed"),
     tasks:allTasks && has("task_sequence_completed"), completed:has("study_completed")};
@@ -341,13 +342,12 @@ function requireStage(nextStage){
   let destination = null;
   if(params.get("assignment_source") !== "server-block" || !params.get("session_token")) destination = "../index.html";
   else if(nextStage === "consent" && progress.consent){
-    destination = !progress.reminder ? "reminder.html" : !progress.tutorial ? "tutorial.html" :
-      !progress.comprehension ? "comprehension.html" : !progress.tasks ? "task.html" : "debrief.html";
+    destination = !progress.reminder ? "reminder.html" : !progress.tasks ? "task.html" : "debrief.html";
   }
   else if(nextStage !== "consent" && !progress.consent) destination = "consent.html";
   else if(!["consent","reminder"].includes(nextStage) && !progress.reminder) destination = "reminder.html";
-  else if(["comprehension","task","debrief","completion"].includes(nextStage) && !progress.tutorial) destination = "tutorial.html";
-  else if(["task","debrief","completion"].includes(nextStage) && !progress.comprehension) destination = "comprehension.html";
+  // The guided tutorial and comprehension run on the task page, so it needs only the reminder.
+  else if(["debrief","completion"].includes(nextStage) && (!progress.tutorial || !progress.comprehension)) destination = "task.html";
   else if(["debrief","completion"].includes(nextStage) && !progress.tasks) destination = "task.html";
   else if(nextStage === "completion" && !state.server_completed) destination = "debrief.html";
   if(destination){
@@ -412,6 +412,8 @@ function baseContext(){
     experiment_version:window.SHARED_POOL?.version || params.get("v") || null,
     deployment_id:window.STUDY_CONFIG?.deployment_id || null,
     completion_protocol:window.STUDY_CONFIG?.completion_protocol || null,
+    outcome_protocol:window.STUDY_CONFIG?.outcome_protocol || null,
+    max_runs_per_trial:window.STUDY_CONFIG?.max_runs_per_trial || null,
     rule_editor_protocol:window.STUDY_CONFIG?.rule_editor_protocol || null,
     tutorial_story_protocol:window.STUDY_CONFIG?.tutorial_story_protocol || null,
     retain_family_drafts:window.STUDY_CONFIG?.retain_family_drafts ?? null,

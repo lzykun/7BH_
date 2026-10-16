@@ -6,8 +6,10 @@
   <title>Coordination Rules</title>
   <link rel="icon" href="data:,">
   <meta name="study-data-endpoint" content="../record_result.php">
-  <link rel="stylesheet" href="../styles.css?v=7bh-formal-v23">
+  <link rel="stylesheet" href="../styles.css?v=7bh-formal-v27">
   <link rel="stylesheet" href="../shuffle-controls.css">
+  <link rel="stylesheet" href="../run-budget.css">
+  <link rel="stylesheet" href="../guided-tutorial/guided.css?v=7bh-formal-v27">
 </head>
 <body data-stage="task" data-asset-prefix="../">
 <div class="task-viewport" id="task-viewport">
@@ -43,6 +45,11 @@
       <div class="scene-bottom-controls">
         <div class="controls scene-run-controls">
           <button class="btn primary" id="run">Run rule</button>
+          <div id="run-budget" class="run-budget" role="status" aria-live="polite" aria-atomic="true">
+            <strong class="run-budget-number" id="run-budget-number">10</strong>
+            <span class="run-budget-label" id="run-budget-label">Runs left</span>
+            <span class="run-budget-track" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+          </div>
           <div class="step-nav" aria-label="Animation step controls">
             <button class="btn step-button" id="prev" aria-label="Previous step" title="Previous step">←</button>
             <span class="step-label" id="step-label">Step 0 / 0</span>
@@ -83,8 +90,97 @@
     </section>
 
   </div>
+  <div class="guided-layer" id="guided-layer" hidden>
+    <svg class="guided-spot" id="guided-spot" aria-hidden="true"></svg>
+    <div class="guided-bubble" id="guided-bubble" role="dialog" aria-live="polite" aria-labelledby="guided-message">
+      <div class="guided-who">
+        <svg class="guided-bot" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 3h8v2h2v7H6V5h2V3ZM5 12h14v9H5v-9Z"/><circle cx="10" cy="8" r="1" fill="#202020"/><circle cx="14" cy="8" r="1" fill="#202020"/><path d="M9 16h6M9 18h6" stroke="#fff" stroke-width="1.4"/></svg>
+        <div><div class="guided-msg" id="guided-message"></div><div class="guided-wait" id="guided-wait" hidden></div></div>
+      </div>
+      <div class="guided-nav">
+        <button class="guided-back" id="guided-back" type="button">← Back</button>
+        <span class="guided-count" id="guided-count"></span>
+        <button class="guided-next" id="guided-next" type="button">Next →</button>
+      </div>
+    </div>
+  </div>
 </div>
 </div>
+</div>
+
+<div class="guided-config-error" id="guided-config-error" role="alert" hidden></div>
+
+<div class="guided-comprehension-backdrop" id="guided-comprehension" hidden>
+  <main class="comprehension-page guided-comprehension-dialog" role="dialog" aria-modal="true" aria-labelledby="comprehension-title">
+    <section id="comprehension-questions">
+      <h1 id="comprehension-title">Comprehension Questions</h1>
+      <form class="comprehension-form comprehension-frame" id="comprehension-form">
+      <fieldset class="comprehension-question">
+        <legend>1. What completes a task?</legend>
+        <label class="comprehension-option"><input type="radio" name="check1" value="a"><span>One robot reaches any charging bay.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check1" value="b"><span>Every robot reaches the charging bay with the same number in the same Run.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check1" value="c"><span>You press Run once.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check1" value="d"><span>Every robot waits at least once.</span></label>
+      </fieldset>
+
+      <fieldset class="comprehension-question">
+        <legend id="comprehension-condition-question">2. What happens if two robots conflict?</legend>
+        <label class="comprehension-option"><input type="radio" name="check2" value="a"><span id="comprehension-condition-a"></span></label>
+        <label class="comprehension-option"><input type="radio" name="check2" value="b"><span id="comprehension-condition-b"></span></label>
+        <label class="comprehension-option"><input type="radio" name="check2" value="c"><span id="comprehension-condition-c"></span></label>
+        <label class="comprehension-option"><input type="radio" name="check2" value="d"><span id="comprehension-condition-d"></span></label>
+      </fieldset>
+
+      <fieldset class="comprehension-question">
+        <legend>3. Which features can your waiting rule use?</legend>
+        <label class="comprehension-option"><input type="radio" name="check3" value="a"><span>Either Movement direction or Robot type, one at a time.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check3" value="b"><span>Movement direction and Robot type together in the same rule.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check3" value="c"><span>Distance to the charging bay only.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check3" value="d"><span>The order in which robots appear on the map.</span></label>
+      </fieldset>
+
+      <fieldset class="comprehension-question">
+        <legend>4. What happens to your waiting rule when the next task starts?</legend>
+        <label class="comprehension-option"><input type="radio" name="check4" value="a"><span>It is deleted.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check4" value="b"><span>It is changed at random.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check4" value="c"><span>It can no longer be edited.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check4" value="d"><span>It stays selected and can still be edited.</span></label>
+      </fieldset>
+      <fieldset class="comprehension-question">
+        <legend>5. Which action uses one of your 10 Runs?</legend>
+        <label class="comprehension-option"><input type="radio" name="check5" value="a"><span>Replaying a previous Run with the arrow buttons.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check5" value="b"><span>Pressing Run, even without changing your selections. Replaying does not use a Run.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check5" value="c"><span>Changing your selections without pressing Run.</span></label>
+      </fieldset>
+      <fieldset class="comprehension-question">
+        <legend>6. All robots reach their own bays on Run 10. Does this count as a solved task?</legend>
+        <label class="comprehension-option"><input type="radio" name="check6" value="a"><span>Yes, success on Run 10 still counts.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check6" value="b"><span>No, only success before Run 10 counts.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check6" value="c"><span>Only if the same selections work a second time.</span></label>
+      </fieldset>
+      <fieldset class="comprehension-question">
+        <legend>7. Some robots are still not home after Run 10. What happens next?</legend>
+        <label class="comprehension-option"><input type="radio" name="check7" value="a"><span>You can keep running the same task until every robot is home.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check7" value="b"><span>You move to the next task with all selections cleared.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check7" value="c"><span>You move to the next task with your last selections kept.</span></label>
+      </fieldset>
+      </form>
+
+      <div class="comprehension-button-group">
+        <button class="comprehension-button" id="comprehension-check" type="button" disabled>Check</button>
+      </div>
+    </section>
+
+    <section class="comprehension-result" id="comprehension-result" hidden aria-live="polite">
+      <h2 id="comprehension-result-title"></h2>
+      <p id="comprehension-result-copy"></p>
+      <p id="comprehension-bonus" hidden></p>
+      <div class="comprehension-button-group">
+        <button class="comprehension-button" id="comprehension-back-to-tutorial" type="button" hidden>Back to tutorial</button>
+        <button class="comprehension-button" id="comprehension-start" type="button" hidden>Start task</button>
+      </div>
+    </section>
+  </main>
 </div>
 
 <div class="guide-backdrop" id="guide-backdrop" hidden>
@@ -107,6 +203,23 @@
 </div>
 
 <dialog class="task-success-dialog" id="task-success-dialog" aria-label="Success"></dialog>
+<dialog class="task-failed-dialog" id="task-failed-dialog" aria-labelledby="task-failed-title">
+  <svg class="crying-robot" viewBox="0 0 48 48" aria-hidden="true" shape-rendering="crispEdges">
+    <path fill="#d9e5e6" d="M9 44h30v2H9z"/>
+    <g class="crying-robot-body">
+      <path fill="#203039" d="M22 3h4v6h-4zM9 10h30v22H9zM5 16h4v10H5zM39 16h4v10h-4zM13 32h22v9H13zM13 41h7v4h-7zM28 41h7v4h-7z"/>
+      <path fill="#287e85" d="M11 12h26v18H11zM15 33h18v6H15z"/>
+      <path fill="#f3fbf8" d="M13 14h22v14H13z"/>
+      <path fill="#203039" d="M16 17h3v2h-3zM19 19h2v2h-5v-2zM29 17h3v2h-3zM27 19h5v2h-5zM22 23h4v2h-4zM20 25h2v2h-2zM26 25h2v2h-2z"/>
+      <path fill="#f3fbf8" d="M20 34h8v2h-8z"/>
+      <path fill="#62b7eb" d="M17 21h2v3h-2zM29 21h2v3h-2z"/>
+      <path class="robot-tear robot-tear-left" fill="#3999d6" d="M17 24h2v4h-2z"/>
+      <path class="robot-tear robot-tear-right" fill="#3999d6" d="M29 24h2v4h-2z"/>
+    </g>
+  </svg>
+  <h2 id="task-failed-title">Some robots didn't make it home.</h2>
+  <button class="btn primary" id="task-failed-next" type="button">Next task</button>
+</dialog>
 
 <div class="task-complete-backdrop" id="task-complete-backdrop" hidden>
   <section class="task-complete-dialog" role="dialog" aria-modal="true" aria-labelledby="task-complete-title" aria-describedby="task-complete-message">
@@ -120,13 +233,17 @@
     </div>
   </section>
 </div>
-<script src="../shared-pool.js?v=7bh-formal-v23"></script>
-<script src="../study-config.js?v=7bh-formal-v23"></script>
-<script src="../data-collector.js?v=7bh-formal-v23"></script>
-<script src="../shuffle-bootstrap.js?v=7bh-formal-v23"></script>
-<script src="../engine.js?v=7bh-formal-v23"></script>
-<script src="../study_feedback.js?v=7bh-formal-v23"></script>
-<script src="../shuffle-controls.js?v=7bh-formal-v23"></script>
-<script src="../app.js?v=7bh-formal-v23"></script>
+<script src="../shared-pool.js?v=7bh-formal-v27"></script>
+<script src="../study-config.js?v=7bh-formal-v27"></script>
+<script src="../trial-policy.js?v=7bh-formal-v27"></script>
+<script src="../data-collector.js?v=7bh-formal-v27"></script>
+<script src="../shuffle-bootstrap.js?v=7bh-formal-v27"></script>
+<script src="../engine.js?v=7bh-formal-v27"></script>
+<script src="../study_feedback.js?v=7bh-formal-v27"></script>
+<script src="../shuffle-controls.js?v=7bh-formal-v27"></script>
+<script src="../guided-tutorial/steps.js?v=7bh-formal-v27"></script>
+<script src="../guided-tutorial/comprehension.js?v=7bh-formal-v27"></script>
+<script src="../guided-tutorial/engine.js?v=7bh-formal-v27"></script>
+<script src="../app.js?v=7bh-formal-v27"></script>
 </body>
 </html>

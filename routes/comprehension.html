@@ -5,69 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Comprehension Questions</title>
   <link rel="icon" href="data:,">
-  <meta name="study-data-endpoint" content="../record_result.php">
-  <link rel="stylesheet" href="../styles.css?v=7bh-formal-v23">
-  </head>
-<body data-stage="comprehension" data-asset-prefix="../">
-<div class="onboarding-screen" id="comprehension-screen" hidden>
-  <main class="comprehension-page" aria-labelledby="comprehension-title">
-    <section id="comprehension-questions">
-      <h1 id="comprehension-title">Comprehension Questions</h1>
-      <form class="comprehension-form comprehension-frame" id="comprehension-form">
-      <fieldset class="comprehension-question">
-        <legend>1. What completes a task?</legend>
-        <label class="comprehension-option"><input type="radio" name="check1" value="a"><span>One robot reaches any charging bay.</span></label>
-        <label class="comprehension-option"><input type="radio" name="check1" value="b"><span>Every robot reaches the charging bay with the same number in the same Run.</span></label>
-        <label class="comprehension-option"><input type="radio" name="check1" value="c"><span>You press Run once.</span></label>
-        <label class="comprehension-option"><input type="radio" name="check1" value="d"><span>Every robot waits at least once.</span></label>
-      </fieldset>
-
-      <fieldset class="comprehension-question">
-        <legend id="comprehension-condition-question">2. What happens if two robots conflict?</legend>
-        <label class="comprehension-option"><input type="radio" name="check2" value="a"><span id="comprehension-condition-a"></span></label>
-        <label class="comprehension-option"><input type="radio" name="check2" value="b"><span id="comprehension-condition-b"></span></label>
-        <label class="comprehension-option"><input type="radio" name="check2" value="c"><span id="comprehension-condition-c"></span></label>
-        <label class="comprehension-option"><input type="radio" name="check2" value="d"><span id="comprehension-condition-d"></span></label>
-      </fieldset>
-
-      <fieldset class="comprehension-question">
-        <legend>3. Which features can your waiting rule use?</legend>
-        <label class="comprehension-option"><input type="radio" name="check3" value="a"><span>Either Movement direction or Robot type, one at a time.</span></label>
-        <label class="comprehension-option"><input type="radio" name="check3" value="b"><span>Movement direction and Robot type together in the same rule.</span></label>
-        <label class="comprehension-option"><input type="radio" name="check3" value="c"><span>Distance to the charging bay only.</span></label>
-        <label class="comprehension-option"><input type="radio" name="check3" value="d"><span>The order in which robots appear on the map.</span></label>
-      </fieldset>
-
-      <fieldset class="comprehension-question">
-        <legend>4. What happens to your waiting rule when the next task starts?</legend>
-        <label class="comprehension-option"><input type="radio" name="check4" value="a"><span>It is deleted.</span></label>
-        <label class="comprehension-option"><input type="radio" name="check4" value="b"><span>It is changed at random.</span></label>
-        <label class="comprehension-option"><input type="radio" name="check4" value="c"><span>It can no longer be edited.</span></label>
-        <label class="comprehension-option"><input type="radio" name="check4" value="d"><span>It stays selected and can still be edited.</span></label>
-      </fieldset>
-      </form>
-
-      <div class="comprehension-button-group">
-        <button class="comprehension-button" id="comprehension-check" type="button" disabled>Check</button>
-      </div>
-    </section>
-
-    <section class="comprehension-result" id="comprehension-result" hidden aria-live="polite">
-      <h2 id="comprehension-result-title"></h2>
-      <p id="comprehension-result-copy"></p>
-      <div class="comprehension-button-group">
-        <button class="comprehension-button" id="comprehension-retry" type="button" hidden>Try again</button>
-        <button class="comprehension-button" id="comprehension-start" type="button" hidden>Start task</button>
-      </div>
-    </section>
-  </main>
-</div>
-<script src="../shared-pool.js?v=7bh-formal-v23"></script>
-<script src="../study-config.js?v=7bh-formal-v23"></script>
-<script src="../data-collector.js?v=7bh-formal-v23"></script>
-<script src="../shuffle-bootstrap.js?v=7bh-formal-v23"></script>
-<script src="../engine.js?v=7bh-formal-v23"></script>
-<script src="../tutorial.js?v=7bh-formal-v23"></script>
-<script src="../stage-page.js?v=7bh-formal-v23"></script>
+  <script>
+  /* The guided tutorial and comprehension questions now run on the task page.
+     Old links and assignment.js routes still point here. */
+  location.replace("task.html" + location.search + location.hash);
+  </script>
+</head>
+<body data-stage="comprehension">
+<p><a href="task.html">Continue to the study</a></p>
 </body>
 </html>

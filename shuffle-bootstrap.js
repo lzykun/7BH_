@@ -4,7 +4,8 @@
   const url = new URL(location.href);
   const p = window.StudyData?.params || url.searchParams;
   const preview = p.get('preview') === '1';
-  const formalSchedules = ['all-local', 'jump-2', 'jump-5'];
+  const formalSchedules = ['jump-2'];
+  const previewSchedules = window.STUDY_CONFIG.preview_only ? window.STUDY_CONFIG.preview_conditions : formalSchedules;
   const armLabels = {
     'all-local':'all-local',
     'jump-2':'early-jump',
@@ -59,7 +60,7 @@
   let schedule;
   let assignmentSource;
   if(preview){
-    schedule = Object.hasOwn(pool.sequences, p.get('schedule')) ? p.get('schedule') : 'all-local';
+    schedule = previewSchedules.includes(p.get('schedule')) ? p.get('schedule') : formalSchedules[0];
     assignmentSource = 'researcher-preview';
   }else{
     const stored = readStoredAssignment();
@@ -77,6 +78,8 @@
     ? Math.max(0, Math.min(pool.sequences[schedule].materials.length - 1, requested - 1)) : 0;
   const continuation = 'local';
   const taskPage = inferredStage === 'task';
+  // The guided tutorial runs on the task page, so only an explicit request skips it.
+  const skipTutorialRequested = url.searchParams.get('skipTutorial') === '1';
 
   p.set('schedule', schedule);
   p.set('assigned_condition', schedule);
@@ -92,7 +95,8 @@
   if(preview) p.set('preview', '1');
   else p.delete('preview');
   if(taskPage || inspect){
-    p.set('skipTutorial', '1');
+    if(inspect || skipTutorialRequested) p.set('skipTutorial', '1');
+    else p.delete('skipTutorial');
     p.delete('stage');
   }else{
     p.delete('skipTutorial');
@@ -142,6 +146,7 @@
     arm:armLabels[schedule] || 'researcher-preview',
     source:assignmentSource,
     formal:!preview,
+    policy:window.STUDY_CONFIG?.assignment_policy || 'early-jump-only-v1',
   };
   window.SHUFFLE_PREVIEW = {
     schedule,

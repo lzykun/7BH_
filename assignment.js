@@ -7,7 +7,7 @@ if(window.STUDY_CONFIG?.preview_only) params.set("preview", "1");
 const recruitmentId = params.get("PROLIFIC_PID") || params.get("participant_id") || null;
 const version = window.SHARED_POOL?.version;
 if(params.get("preview") !== "1") history.replaceState(null, "", location.pathname);
-const formalConditions = ["all-local", "jump-2", "jump-5"];
+const formalConditions = ["jump-2"];
 const armLabels = {
   "all-local":"all-local",
   "jump-2":"early-jump",
@@ -87,6 +87,10 @@ function showError(message){
 }
 
 async function assign(){
+  // On GitHub Pages, pages-preview.js reloads this page with preview=1;
+  // never contact the assignment server from there.
+  if(["555bighamsome.github.io", "lzykun.github.io"].includes(window.location.hostname) &&
+    params.get("preview") !== "1") return;
   if(!params.get("session") && !recruitmentId){
     try{
       const key = "robot-study:active-context:" + version;

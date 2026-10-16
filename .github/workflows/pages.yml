@@ -31,13 +31,16 @@ jobs:
         run: |
           mkdir _site
           cp index.html ./*.js ./*.css _site/
-          cp -R assets routes _site/
+          cp -R assets routes guided-tutorial _site/
           cp release-manifest.json _site/
           touch _site/.nojekyll
           test ! -e _site/record_result.php
           test ! -e _site/assign_condition.php
           test ! -e _site/server-common.php
           test ! -e _site/.htaccess
+          test ! -e _site/task-solutions.json
+          test -f _site/guided-tutorial/steps.js
+          test -f _site/trial-policy.js
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

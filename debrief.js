@@ -7,6 +7,8 @@ const data = window.StudyData;
 const params = data?.params || new URLSearchParams(window.location.search);
 if(!await data?.ready || !data.init({stage:"debrief"})) return;
 data?.record("debrief_viewed");
+const performanceSummary = window.TrialPolicy.summarize(data.snapshot().events,window.STUDY_CONFIG.trial_count,window.STUDY_CONFIG.payment);
+document.getElementById("performance-summary").textContent = `All robots made it home in ${performanceSummary.successful_tasks} of ${performanceSummary.trials.length} tasks. ${window.TrialPolicy.paymentText(performanceSummary)}`;
 
 const form = document.getElementById("debrief-form");
 const questionnaire = document.getElementById("debrief-questionnaire");
@@ -106,6 +108,7 @@ function recordCompletion(answerSet){
   if(completionRecorded) return;
   data?.record("debrief_completed");
   data?.record("study_completed", {
+    performance_summary:performanceSummary,
     assigned_condition:params.get("assigned_condition"),
     assignment_arm:params.get("assignment_arm"),
     completion_code:COMPLETION_CODE,
