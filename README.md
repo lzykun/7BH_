@@ -46,6 +46,7 @@ Preview sessions remain in browser storage and do not write to the study server.
 ```bash
 node tests/verify-release.cjs
 node tests/verify-guided-tutorial.cjs
+node tests/check-event-workflow.cjs <exported-session.jsonl>
 ```
 
 This checks the runtime hashes, JavaScript syntax, shared task orders, pure Type

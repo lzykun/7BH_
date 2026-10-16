@@ -17,8 +17,8 @@ The conditions share T1-T5, followed by these permutations of one task bank:
 | Late jump | B, C, D, E, F, A | T11 |
 
 The critical repair is in Type, not Movement. The guided tutorial's practice
-rule (configured in `guided-tutorial/steps.js`, currently Movement -> north) is
-carried into T1. Type and Movement selections are retained separately, but only the
+rule (configured in `guided-tutorial/steps.js`, currently Movement -> west, T1's
+Movement solution) is carried into T1, so the first T1 Run with it succeeds. Type and Movement selections are retained separately, but only the
 active tab contributes to a Run. Switching tabs and editing values are distinct
 events. A tab switch does not by itself establish a tested strategy shift.
 
@@ -73,17 +73,35 @@ mode records no task events (`run_*`, `rule_value_*`, `rule_family_changed`,
 | `tutorial_rule_family_changed` | Type/Movement tab switch | `from_family`, `to_family`, `trigger`, `step_id`, `round` |
 | `tutorial_rule_value_toggled` | A value is selected or cleared | `family`, `value`, `selected`, `step_id`, `round` |
 | `tutorial_completed` | Finish on the last step | `step_id`, `steps`, `duration_ms`, `round`, `practice_rule`, `last_step_ms` |
+| `tutorial_stage_completed` | Right after each `tutorial_completed` (kept from v23) | `round` |
 | `tutorial_config_invalid` | The config fails validation | `errors` |
 | `comprehension_opened`, `comprehension_option_selected`, `comprehension_submitted`, `comprehension_passed` | As before | As before, plus `tutorial_protocol` and `round`; a failed submission adds `returned_to_tutorial: true` |
+| `comprehension_stage_completed` | Right after `comprehension_passed` (kept from v23) | `round` |
 | `practice_rule_carried_over` | Entering T1 (stage `task`) | `practice_protocol: "guided-interface-v1"`, `carried_family`, `carried_value`, `movement_values`, `role_values`, source event IDs |
 
 A failed comprehension check returns to tutorial step 1 with `round` + 1;
 completed actions stay completed. A reload resumes the last viewed tutorial
-step, reopens comprehension with saved answers, or restores T1. The old
-tutorial's `tutorial_page_viewed`, `tutorial_story_*`, `tutorial_stage_completed`
-and `comprehension_stage_completed` events are no longer produced. The consent
-page still emits its old `tutorial_started` (stage `consent`, without
-`tutorial_protocol`).
+step, reopens comprehension with saved answers, or restores T1.
+
+In the tutorial only the step's own choice responds (the Movement tab, then
+west); other tabs and values ignore clicks and keys and record nothing. The
+success confetti appears once per participant.
+
+Known data notes for analysis:
+
+- Tutorial and comprehension events carry `trial_index: 1` (as the v23
+  tutorial page did) with null `task_id` and `task_item_id`. Filter by `stage`,
+  not `trial_index`.
+- The old tutorial's `tutorial_page_viewed` and `tutorial_story_*` events have
+  no equivalent and are not produced; `tutorial_step_viewed` replaces them.
+  `tutorial_stage_completed` and `comprehension_stage_completed` are still
+  produced.
+- The consent page still emits its old `tutorial_started` (stage `consent`,
+  without `tutorial_protocol`).
+
+`node tests/check-event-workflow.cjs <session.jsonl>` replays an exported
+session through the receiver's workflow rules (a copy of `studyProgress()` in
+`server-common.php`) and lists any event the server would reject.
 
 ## Private storage and recovery
 

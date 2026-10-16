@@ -4,6 +4,8 @@
    the parts in steps.js. */
 
 body.task-tutorial-mode .taskbar{visibility:hidden;}
+/* Dim the window outside the task surface too (decision B6); the spotlight dims the surface. */
+body.guided-active .task-viewport{background:linear-gradient(rgba(14,26,38,.52),rgba(14,26,38,.52)),var(--surface);}
 /* Keep the Run bar where it sits in T1 (where "Try Run first" fills the status line). */
 body.task-tutorial-mode #status{min-height:74px;box-sizing:border-box;}
 body.task-tutorial-mode #status:empty{display:block;}

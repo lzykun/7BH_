@@ -109,6 +109,51 @@ function applyLock(){
   document.body.dataset.guideUnlock = (seq[pos]?.unlock || []).join(" ");
 }
 
+/* ---------- choice lock: only the asked-for tab or value responds ---------- */
+
+// The step's own action is the only rule choice that can be clicked. Every
+// other tab and value (including already selected ones) ignores clicks and
+// keys and records nothing.
+function allowedChoice(){
+  const step = seq[pos];
+  const practice = CONFIG.practice;
+  if(!active || !step) return {};
+  const state = host.getRuleState();
+  if(step.gate === "family-move" && state.family !== practice.family) return {tab:practice.family};
+  if(step.gate === "value" && state.family === practice.family &&
+    !(state.values[practice.family] || []).map(String).includes(String(practice.value))) return {value:practice.value};
+  return {};
+}
+
+function choiceAllowed(control){
+  const allowed = allowedChoice();
+  if(control.classList.contains("rule-family-tab")) return !!allowed.tab && control.dataset.family === allowed.tab;
+  return !!allowed.value && control.dataset.family === CONFIG.practice.family &&
+    String(control.dataset.value) === String(allowed.value);
+}
+
+function updateChoiceLock(){
+  let style = $("guided-choice-styles");
+  if(!style){
+    style = document.createElement("style");
+    style.id = "guided-choice-styles";
+    document.head.appendChild(style);
+  }
+  const allowed = allowedChoice();
+  const tab = allowed.tab ? `:not([data-family="${allowed.tab}"])` : "";
+  const value = allowed.value ? `:not([data-family="${CONFIG.practice.family}"][data-value="${allowed.value}"])` : "";
+  style.textContent = `body.guided-active .rule-family-tab${tab},body.guided-active .simple-value-button${value}{pointer-events:none;cursor:default;}`;
+}
+
+// Window capture runs before the data collector's document listeners and the buttons' own handlers.
+function blockOtherChoices(event){
+  if(!active) return;
+  const control = event.target.closest?.(".rule-family-tab,.simple-value-button");
+  if(!control || choiceAllowed(control)) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+}
+
 /* ---------- rule state per step (storyboard setupStep) ---------- */
 
 function stepRuleState(step){
@@ -267,6 +312,7 @@ function render(){
   back.disabled = pos === 0;
   back.style.visibility = pos === 0 ? "hidden" : "visible";
   $("guided-count").textContent = `${pos + 1} / ${seq.length}`;
+  updateChoiceLock();
   placeGuide();
 }
 
@@ -285,6 +331,8 @@ function go(index, direction){
   pos = index;
   const step = seq[pos];
   setupStep();
+  // Going back shows "Run rule" even where the earlier Run succeeded (decision B3).
+  if(direction === "back") host.resetRunButton();
   render();
   requestAnimationFrame(placeGuide);
   let celebrate = false;
@@ -329,6 +377,12 @@ function back(){
 function onKeydown(event){
   if(!active || event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
   if(event.target.closest?.("input,textarea,select")) return;
+  const control = event.target.closest?.(".rule-family-tab,.simple-value-button");
+  if(control && !choiceAllowed(control) && ["Home", "End", "Enter", " "].includes(event.key)){
+    event.preventDefault();
+    event.stopPropagation();
+    return;
+  }
   if(event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
   // The guide's paging wins over the rule tabs' own arrow-key switching.
   event.preventDefault();
@@ -356,8 +410,7 @@ function onRuleEvent(type, detail){
     const state = host.getRuleState();
     if(step.gate === "value" && state.family === CONFIG.practice.family &&
       (state.values[CONFIG.practice.family] || []).map(String).includes(String(CONFIG.practice.value))) complete(step, step.gate);
-    // Storyboard: changing the rule puts the robots back at the start.
-    host.resetRun();
+    // As in the formal tasks, a rule edit leaves the board as it is (decision B2).
   }
   render();
   requestAnimationFrame(placeGuide);
@@ -405,6 +458,8 @@ function finishTutorial(){
     step_id:step.id, steps:seq.map(item => item.id), duration_ms:Date.now() - startedAt, round,
     practice_rule:lastPracticeRule, last_step_ms:Date.now() - stepViewedAt,
   });
+  // Kept from the v23 stage pages for analysis continuity (decision B9).
+  record("tutorial_stage_completed", {round});
   showGuide(false);
   saveCheckpoint("comprehension");
   openComprehension();
@@ -419,13 +474,15 @@ function openComprehension(){
     onPassed(){
       data()?.saveCheckpoint(CHECKPOINT, {protocol:PROTOCOL, phase:"done", round});
       document.removeEventListener("keydown", onKeydown, true);
+      window.removeEventListener("click", blockOtherChoices, true);
       window.removeEventListener("resize", schedulePlace);
+      $("guided-choice-styles")?.remove();
       onFinished();
     },
     onFailed(){
       // Back to step 1. Actions already done stay done, so Next skips through.
+      // Confetti stays once per participant (decision B4).
       round += 1;
-      celebrated = false;
       data()?.setStage("tutorial");
       showGuide(true);
       stepViewedAt = 0;
@@ -466,6 +523,7 @@ function start(options){
   $("guided-back").onclick = back;
   $("guided-next").onclick = next;
   document.addEventListener("keydown", onKeydown, true);
+  window.addEventListener("click", blockOtherChoices, true);
   window.addEventListener("resize", schedulePlace);
 
   const saved = data()?.checkpoint(CHECKPOINT);

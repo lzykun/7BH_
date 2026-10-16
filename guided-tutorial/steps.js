@@ -43,7 +43,8 @@ function tutorialMap(id, openCells, robots){
 const span = (from, to) => Array.from({length:to - from + 1}, (_, index) => from + index);
 
 // Open area in the top-left (rows 2-7, cols 2-7), where T1's roads are.
-// Robot 1 is Type A (carrier), robot 2 is Type D (loader).
+// Robot 1 is Type A (carrier), robot 2 is Type D (loader). On map 2 robot 2
+// moves west into the crossing, so the practice answer matches T1's (west).
 const MAPS = {
   m1:tutorialMap("guided_tutorial_m1",
     [...span(2, 7).map(col => [3, col]), ...span(2, 7).map(col => [5, col])],
@@ -52,10 +53,10 @@ const MAPS = {
       {start:[5, 7], target:[5, 2], arrow:"W", role:"loader"},
     ]),
   m2:tutorialMap("guided_tutorial_m2",
-    [...span(2, 7).map(col => [4, col]), [2, 5], [3, 5], [5, 5], [6, 5], [7, 5]],
+    [...span(2, 7).map(col => [4, col]), [2, 4], [3, 4], [5, 4], [6, 4], [7, 4]],
     [
-      {start:[4, 2], target:[4, 7], arrow:"E", role:"carrier"},
-      {start:[7, 5], target:[2, 5], arrow:"N", role:"loader"},
+      {start:[7, 4], target:[2, 4], arrow:"N", role:"carrier"},
+      {start:[4, 7], target:[4, 2], arrow:"W", role:"loader"},
     ]),
 };
 
@@ -123,8 +124,9 @@ const STEPS = [
     text:"Only the tab that is open when you press Run is used. Each tab keeps its own selections."},
   {id:"pick-movement", gadget:"core", map:"m2", rule:"none", shown:"end", target:"#tab-move", unlock:["board", "runbar", "status", "goals", "rules-head", "current", "context", "tabs"], gate:"family-move",
     text:"Let's use Movement for this map. Click the <em>Movement</em> tab.", wait:"Click Movement to continue"},
-  {id:"select-value", gadget:"core", map:"m2", rule:"move-tab", shown:"end", target:"value:N", unlock:UNLOCK_RULES, gate:"value",
-    text:"Robot 2 is moving <em>north ↑</em>. Select <em>north</em> so that robot waits when the two meet.", wait:"Select north to continue"},
+  // Storyboard said north; changed to west so the practice matches T1 (decision B1).
+  {id:"select-value", gadget:"core", map:"m2", rule:"move-tab", shown:"end", target:"value:W", unlock:UNLOCK_RULES, gate:"value",
+    text:"Robot 2 is moving <em>west ←</em>. Select <em>west</em> so that robot waits when the two meet.", wait:"Select west to continue"},
   {id:"match-outline", gadget:"match-outline", map:"m2", rule:"move-N", shown:"start", target:"robot:2", unlock:UNLOCK_RULES,
     text:"Robots that match your rule get a <em>green outline</em>. It shows who would wait. It does not mean the rule works yet."},
   {id:"current-rule", gadget:"core", map:"m2", rule:"move-N", shown:"start", target:".current", unlock:UNLOCK_RULES,
@@ -144,10 +146,10 @@ const STEPS = [
 window.GuidedTutorialConfig = Object.freeze({
   protocol:"guided-interface-v1",
   // The practice answer. It must match T1's solution once the task set is final.
-  practice:{family:"move_dir", value:"N"},
+  practice:{family:"move_dir", value:"W"},
   // The rule that is selected when T1 starts.
-  carryIntoFirstTask:{family:"move_dir", value:"N"},
-  practiceRetryText:"Try again: select north on the Movement tab, then press Run rule.",
+  carryIntoFirstTask:{family:"move_dir", value:"W"},
+  practiceRetryText:"Try again: select west on the Movement tab, then press Run rule.",
   labels:{back:"← Back", next:"Next →", finish:"Finish"},
   maps:MAPS,
   parts:PARTS,

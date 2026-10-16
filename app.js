@@ -3074,6 +3074,13 @@ window.TaskHost = Object.freeze({
     return result;
   },
   run(){ play("guide"); },
+  resetRunButton(){
+    const runButton = $("run");
+    if(!runButton) return;
+    runButton.textContent = "Run rule";
+    runButton.classList.add("primary");
+    runButton.classList.remove("secondary-run");
+  },
   renderRuleEditor(){ renderRules(); },
   getRuleState(){ return tutorialRuleState(); },
   setRuleState(state){

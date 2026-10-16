@@ -36,7 +36,12 @@ assert.equal(m2.reason, 'collision', 'Map 2 with no rule: the robots collide');
 const practice = run('m2', config.practice.family, [config.practice.value]);
 assert.ok(practice.ok, 'Practice answer solves map 2');
 assert.equal(practice.completedAgentIds.length, config.maps.m2.world.agents.length);
-assert.equal(run('m2', 'move_dir', ['E', 'N']).ok, false, 'east + north fails on map 2');
+assert.equal(run('m2', 'move_dir', ['N', 'W']).ok, false, 'north + west fails on map 2 (both wait)');
+assert.equal(config.practice.value, 'W', 'Practice answer is west, as in T1 (decision B1)');
+assert.deepEqual({ ...config.carryIntoFirstTask }, { ...config.practice }, 'T1 starts with the practice rule');
+const t1 = pool.bank[pool.sequences['all-local'].materials[0]];
+const t1Result = simulateLocalContinuation(normalizeTask({ ...structuredClone(t1), label: 'T1' }), norms('move_dir', [config.practice.value]), new Set());
+assert.ok(t1Result.ok, 'The practice rule also solves T1');
 for (const map of ['m1', 'm2']) {
   for (const [row, col] of config.maps[map].world.agents.flatMap(agent => [agent.start, agent.goal.target])) {
     assert.ok(row >= 2 && row <= 7 && col >= 2 && col <= 7, `${map}: robots and bays stay in rows/cols 2-7`);
@@ -60,15 +65,24 @@ for (const [id, gadget] of Object.entries(spec.GADGETS)) {
   assert.equal(config.gadgets[id].requires, gadget.requires, `Gadget ${id} dependency`);
 }
 assert.equal(config.steps.length, spec.STEPS.length, 'Same number of steps as the storyboard');
+// Approved deviations from the storyboard: the practice answer is west, not north (decision B1).
+const deviations = {
+  'select-value': {
+    target: 'value:W',
+    text: 'Robot 2 is moving <em>west ←</em>. Select <em>west</em> so that robot waits when the two meet.',
+    wait: 'Select west to continue',
+  },
+};
 const fields = ['id', 'gadget', 'map', 'rule', 'shown', 'target', 'area', 'targetAlso', 'unlock', 'gate', 'bubbleDx', 'celebrate', 'text', 'wait'];
 spec.STEPS.forEach((expected, index) => {
   const actual = config.steps[index];
   for (const field of fields) {
-    assert.deepEqual(JSON.parse(JSON.stringify(actual[field] ?? null)), JSON.parse(JSON.stringify(expected[field] ?? null)),
+    const want = deviations[expected.id]?.[field] ?? expected[field];
+    assert.deepEqual(JSON.parse(JSON.stringify(actual[field] ?? null)), JSON.parse(JSON.stringify(want ?? null)),
       `Step ${index + 1} (${expected.id}) ${field} matches the storyboard`);
   }
 });
-assert.ok(storyboard.includes(config.practiceRetryText), 'Retry text is the storyboard wording');
+assert.ok(storyboard.includes(config.practiceRetryText.replace('west', 'north')), 'Retry text is the storyboard wording (with west)');
 
 // 4. Gadget dependencies: everything on is valid; each gadget off is valid unless something needs it.
 const all = Object.fromEntries(Object.keys(config.gadgets).map(id => [id, true]));

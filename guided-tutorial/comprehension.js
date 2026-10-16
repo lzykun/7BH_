@@ -96,6 +96,8 @@ function bind(){
   $("comprehension-start").onclick = () => {
     close();
     record("comprehension_passed", {attempts:attempt});
+    // Kept from the v23 stage pages for analysis continuity (decision B9).
+    record("comprehension_stage_completed", {round:options.round});
     data()?.flush?.();
     options.onPassed();
   };
