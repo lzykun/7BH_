@@ -94,15 +94,15 @@ const kept = spec.STEPS.filter(step => !removed.includes(step.id));
 const added = {
   'alt-intro': { after: 'good-job', gadget: 'alternative-feature', gate: undefined,
     text: "You can always try the other feature. Let's solve the same map with <em>Type</em>." },
-  'pick-type': { gadget: 'alternative-feature', gate: 'family-type',
+  'pick-type': { wait: 'Click Type to continue', gadget: 'alternative-feature', gate: 'family-type',
     text: "Click <em>Type</em>. Your Movement selection is kept separately and won't change." },
-  'select-type': { gadget: 'alternative-feature', gate: 'type-value', target: 'value:role:loader',
+  'select-type': { wait: 'Select D to continue', gadget: 'alternative-feature', gate: 'type-value', target: 'value:role:loader',
     text: 'Robot 1 is <em>Type D</em>. Select <em>D</em> so it waits.' },
-  'type-run': { gadget: 'alternative-feature', gate: 'run-type-success',
+  'type-run': { wait: 'Get both robots to their bays to continue', gadget: 'alternative-feature', gate: 'run-type-success',
     text: 'Press <em>Run rule</em>. Only the open tab is used, so this Run uses your Type rule.' },
   'type-good': { gadget: 'alternative-feature', gate: undefined, celebrate: true,
     text: 'That works too! Both features can solve a map.' },
-  'back-to-movement': { gadget: 'core', needs: 'alternative-feature', gate: 'family-move',
+  'back-to-movement': { wait: 'Click Movement to continue', gadget: 'core', needs: 'alternative-feature', gate: 'family-move',
     text: 'Click <em>Movement</em>. Your <em>west</em> selection is still there.' },
   'both-kept': { gadget: 'core', gate: undefined,
     text: 'Each tab keeps its own selections, and both are carried into the next task. The open tab is the rule every robot follows when you press Run.' },
@@ -116,7 +116,7 @@ for (const [id, want] of Object.entries(added)) {
     if (field in want) assert.equal(step[field], want[field], `New step ${id} ${field}`);
   }
   assert.equal(step.map, 'm2', `New step ${id} uses the practice map`);
-  assert.equal(step.wait, undefined, `New step ${id} has no wait note (none approved)`);
+  assert.equal(step.wait, want.wait, `New step ${id} wait note`);
 }
 // Approved deviations from the storyboard: west instead of north, robot 1 waits,
 // and highlight areas fitted to the mirrored v23 practice map.
