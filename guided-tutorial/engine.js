@@ -422,7 +422,8 @@ function onRunComplete(result, feedback, trigger){
   const state = host.getRuleState();
   const practiceMet = result.ok && practiceRequirementMet(state);
   record("tutorial_run", {
-    step_id:step.id, scene_id:host.sceneId(), ok:!!result.ok, reason:result.reason || null,
+    step_id:step.id, scene_id:host.sceneId(), layout_source:CONFIG.maps[step.map].layout_source || null,
+    ok:!!result.ok, reason:result.reason || null,
     active_family:state.family, selected_values:state.values,
     practice_requirement_met:practiceMet, trigger, frame_total:Math.max(0, (result.frames?.length || 1) - 1),
     feedback_title:feedback?.title || null, feedback_observation:feedback?.observation || null, round,

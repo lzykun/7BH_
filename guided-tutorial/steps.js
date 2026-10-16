@@ -10,7 +10,7 @@ const ROWS = 19;
 const COLS = 19;
 
 // Same raw format as the task bank, so app.js draws and simulates it as a task.
-function tutorialMap(id, openCells, robots){
+function tutorialMap(id, openCells, robots, options={}){
   const open = new Set(openCells.map(cell => `${cell[0]},${cell[1]}`));
   const walls = [];
   for(let row = 0; row < ROWS; row += 1){
@@ -22,9 +22,10 @@ function tutorialMap(id, openCells, robots){
     id,
     item_id:id,
     label:id,
+    layout_source:options.layoutSource || null,
     world:{
       rows:ROWS, cols:COLS, walls, zones:[], protected:[], items:[], machines:[],
-      passages:[], scanners:[], diagonal_edges:[], merge_cells:[],
+      passages:[], scanners:[], diagonal_edges:options.diagonalEdges || [], merge_cells:[],
       agents:robots.map((robot, index) => ({
         id:index,
         module_id:0,
@@ -43,8 +44,9 @@ function tutorialMap(id, openCells, robots){
 const span = (from, to) => Array.from({length:to - from + 1}, (_, index) => from + index);
 
 // Open area in the top-left (rows 2-7, cols 2-7), where T1's roads are.
-// Robot 1 is Type A (carrier), robot 2 is Type D (loader). On map 2 robot 2
-// moves west into the crossing, so the practice answer matches T1's (west).
+// Map 2 (conflict and practice) is the v23 Type-D practice layout mirrored
+// left-right with the bays swapped: it mirrors T1, so the rule that passes the
+// practice (Movement west) is carried into T1 and solves it with no edits.
 const MAPS = {
   m1:tutorialMap("guided_tutorial_m1",
     [...span(2, 7).map(col => [3, col]), ...span(2, 7).map(col => [5, col])],
@@ -52,12 +54,16 @@ const MAPS = {
       {start:[3, 2], target:[3, 7], arrow:"E", role:"carrier"},
       {start:[5, 7], target:[5, 2], arrow:"W", role:"loader"},
     ]),
-  m2:tutorialMap("guided_tutorial_m2",
-    [...span(2, 7).map(col => [4, col]), [2, 4], [3, 4], [5, 4], [6, 4], [7, 4]],
+  m2:tutorialMap("tutorial_conflict_practice",
+    [[4, 6], [4, 5], [4, 4], [6, 4], [5, 4], [3, 3], [2, 2]],
     [
-      {start:[7, 4], target:[2, 4], arrow:"N", role:"carrier"},
-      {start:[4, 7], target:[4, 2], arrow:"W", role:"loader"},
-    ]),
+      {start:[4, 6], target:[3, 3], arrow:"W", role:"loader"},
+      {start:[6, 4], target:[2, 2], arrow:"N", role:"carrier"},
+    ],
+    {
+      layoutSource:"v23-practice-mirrored-swapped-bays",
+      diagonalEdges:[[[4, 4], [3, 3]], [[3, 3], [2, 2]]],
+    }),
 };
 
 // Storyboard part names -> elements of routes/task.html. Locked parts are greyed.
@@ -110,7 +116,7 @@ const STEPS = [
     text:"Robots always take the shortest route to their bay. Press <em>Run rule</em> to watch them move.", wait:"Press Run rule to continue"},
   {id:"replay", gadget:"replay", map:"m1", rule:"none", shown:"end", target:"#board", area:[[3, 2], [5, 7]], targetAlso:".runbar", unlock:["board", "runbar"],
     text:"Use the <em>← →</em> buttons to replay a run one step at a time."},
-  {id:"run-2", gadget:"core", map:"m2", rule:"none", shown:"start", target:"#board", area:[[2, 2], [7, 7]], targetAlso:".runbar", unlock:["board", "runbar", "status"], gate:"run-any",
+  {id:"run-2", gadget:"core", map:"m2", rule:"none", shown:"start", target:"#board", area:[[2, 2], [6, 6]], targetAlso:".runbar", unlock:["board", "runbar", "status"], gate:"run-any",
     text:"Sometimes the layout gets more complicated. Press <em>Run rule</em> and see what happens on this map.", wait:"Press Run rule to continue"},
   {id:"clash", gadget:"core", map:"m2", rule:"none", shown:"end", target:"#status", unlock:["board", "runbar", "status"],
     text:"The two robots tried to enter the <em>same square</em> at the same time and collided. Robots in a collision stop."},
@@ -124,17 +130,17 @@ const STEPS = [
     text:"Only the tab that is open when you press Run is used. Each tab keeps its own selections."},
   {id:"pick-movement", gadget:"core", map:"m2", rule:"none", shown:"end", target:"#tab-move", unlock:["board", "runbar", "status", "goals", "rules-head", "current", "context", "tabs"], gate:"family-move",
     text:"Let's use Movement for this map. Click the <em>Movement</em> tab.", wait:"Click Movement to continue"},
-  // Storyboard said north; changed to west so the practice matches T1 (decision B1).
+  // Storyboard said north; west so the practice matches T1 (approved wording).
   {id:"select-value", gadget:"core", map:"m2", rule:"move-tab", shown:"end", target:"value:W", unlock:UNLOCK_RULES, gate:"value",
-    text:"Robot 2 is moving <em>west ←</em>. Select <em>west</em> so that robot waits when the two meet.", wait:"Select west to continue"},
-  {id:"match-outline", gadget:"match-outline", map:"m2", rule:"move-N", shown:"start", target:"robot:2", unlock:UNLOCK_RULES,
+    text:"Robot 1 is moving <em>west ←</em>. Select <em>west</em> so that robot waits when the two meet.", wait:"Select west to continue"},
+  {id:"match-outline", gadget:"match-outline", map:"m2", rule:"move-N", shown:"start", target:"robot:1", unlock:UNLOCK_RULES,
     text:"Robots that match your rule get a <em>green outline</em>. It shows who would wait. It does not mean the rule works yet."},
   {id:"current-rule", gadget:"core", map:"m2", rule:"move-N", shown:"start", target:".current", unlock:UNLOCK_RULES,
     text:"Your current rule is written out here in words."},
-  {id:"practice-run", gadget:"core", map:"m2", rule:"move-N", shown:"start", target:"#board", area:[[2, 2], [7, 7]], targetAlso:".runbar", unlock:UNLOCK_RULES, gate:"run-success",
+  {id:"practice-run", gadget:"core", map:"m2", rule:"move-N", shown:"start", target:"#board", area:[[2, 2], [6, 6]], targetAlso:".runbar", unlock:UNLOCK_RULES, gate:"run-success",
     text:"Press <em>Run rule</em> to test your rule.", wait:"Get both robots to their bays to continue"},
-  {id:"good-job", gadget:"core", celebrate:true, map:"m2", rule:"move-N", shown:"end", target:"#board", area:[[2, 2], [7, 7]], unlock:UNLOCK_RULES,
-    text:"<span class='key'>Good job!</span> Robot 2 waited, robot 1 passed, and both reached their bays in the same Run."},
+  {id:"good-job", gadget:"core", celebrate:true, map:"m2", rule:"move-N", shown:"end", target:"#board", area:[[2, 2], [6, 6]], unlock:UNLOCK_RULES,
+    text:"<span class='key'>Good job!</span> Robot 1 waited, robot 2 passed, and both reached their bays in the same Run."},
   {id:"one-rule", gadget:"core", map:"m2", rule:"move-N", shown:"end", target:".rules", unlock:UNLOCK_RULES,
     text:"In each task you build <em>one rule</em>, and every robot follows it. A task is complete when every robot reaches its bay in the same Run."},
   {id:"carry-over", gadget:"carry-over", map:"m2", rule:"move-N", shown:"end", target:".current", unlock:UNLOCK_RULES,

@@ -30,18 +30,35 @@ const norms = (family, values) => values.map(v => ({ action: 'MOVE', conds: [{ p
 const run = (map, family, values) => simulateLocalContinuation(normalizeTask(structuredClone(config.maps[map])), norms(family, values), new Set());
 const m1 = run('m1', 'role', []);
 assert.ok(m1.ok, 'Map 1 with no rule: every robot arrives');
+// Map 2 is the v23 practice layout mirrored left-right with the bays swapped.
 const m2 = run('m2', 'role', []);
 assert.equal(m2.ok, false, 'Map 2 with no rule fails');
 assert.equal(m2.reason, 'collision', 'Map 2 with no rule: the robots collide');
-const practice = run('m2', config.practice.family, [config.practice.value]);
-assert.ok(practice.ok, 'Practice answer solves map 2');
-assert.equal(practice.completedAgentIds.length, config.maps.m2.world.agents.length);
-assert.equal(run('m2', 'move_dir', ['N', 'W']).ok, false, 'north + west fails on map 2 (both wait)');
-assert.equal(config.practice.value, 'W', 'Practice answer is west, as in T1 (decision B1)');
+assert.equal(config.maps.m2.id, 'tutorial_conflict_practice');
+assert.equal(config.maps.m2.layout_source, 'v23-practice-mirrored-swapped-bays');
+assert.equal(config.practice.family, 'move_dir');
+assert.equal(config.practice.value, 'W', 'Practice answer is Movement west');
 assert.deepEqual({ ...config.carryIntoFirstTask }, { ...config.practice }, 'T1 starts with the practice rule');
-const t1 = pool.bank[pool.sequences['all-local'].materials[0]];
-const t1Result = simulateLocalContinuation(normalizeTask({ ...structuredClone(t1), label: 'T1' }), norms('move_dir', [config.practice.value]), new Set());
-assert.ok(t1Result.ok, 'The practice rule also solves T1');
+const practice = run('m2', 'move_dir', ['W']);
+assert.ok(practice.ok, 'Movement west alone solves map 2');
+assert.equal(practice.completedAgentIds.length, config.maps.m2.world.agents.length);
+for (const value of pool.vocabulary.movement.filter(v => v !== 'W')) {
+  assert.equal(run('m2', 'move_dir', [value]).ok, false, `Movement ${value} alone fails on map 2`);
+}
+assert.ok(run('m2', 'role', ['loader']).ok, 'Type D alone also solves map 2 (as in v23)');
+// Every Movement rule (all 256 value sets) that solves map 2 also solves T1, and vice versa.
+const t1 = normalizeTask({ ...structuredClone(pool.bank[pool.sequences['all-local'].materials[0]]), label: 'T1' });
+const movementSet = mask => pool.vocabulary.movement.filter((_, bit) => mask & (1 << bit));
+const solving = scene => Array.from({ length: 256 }, (_, mask) => mask)
+  .filter(mask => simulateLocalContinuation(scene, norms('move_dir', movementSet(mask)), new Set()).ok);
+const practiceSet = solving(normalizeTask(structuredClone(config.maps.m2)));
+const t1Set = solving(t1);
+assert.deepEqual(practiceSet, t1Set, 'Practice Movement solution set == T1 Movement solution set');
+const bit = value => 1 << pool.vocabulary.movement.indexOf(value);
+assert.ok(t1Set.includes(bit('W')), 'T1 solution set includes west alone');
+assert.ok(t1Set.every(mask => mask & bit('W')), 'Every solving Movement rule includes west');
+assert.ok(t1Set.every(mask => !(mask & bit('N'))), 'No solving Movement rule includes north');
+assert.ok(simulateLocalContinuation(t1, norms('move_dir', ['W']), new Set()).ok, 'The carried rule solves T1 with no edits');
 for (const map of ['m1', 'm2']) {
   for (const [row, col] of config.maps[map].world.agents.flatMap(agent => [agent.start, agent.goal.target])) {
     assert.ok(row >= 2 && row <= 7 && col >= 2 && col <= 7, `${map}: robots and bays stay in rows/cols 2-7`);
@@ -65,12 +82,21 @@ for (const [id, gadget] of Object.entries(spec.GADGETS)) {
   assert.equal(config.gadgets[id].requires, gadget.requires, `Gadget ${id} dependency`);
 }
 assert.equal(config.steps.length, spec.STEPS.length, 'Same number of steps as the storyboard');
-// Approved deviations from the storyboard: the practice answer is west, not north (decision B1).
+// Approved deviations from the storyboard: west instead of north, robot 1 waits,
+// and highlight areas fitted to the mirrored v23 practice map.
+const practiceArea = [[2, 2], [6, 6]];
 const deviations = {
+  'run-2': { area: practiceArea },
   'select-value': {
     target: 'value:W',
-    text: 'Robot 2 is moving <em>west ←</em>. Select <em>west</em> so that robot waits when the two meet.',
+    text: 'Robot 1 is moving <em>west ←</em>. Select <em>west</em> so that robot waits when the two meet.',
     wait: 'Select west to continue',
+  },
+  'match-outline': { target: 'robot:1' },
+  'practice-run': { area: practiceArea },
+  'good-job': {
+    area: practiceArea,
+    text: "<span class='key'>Good job!</span> Robot 1 waited, robot 2 passed, and both reached their bays in the same Run.",
   },
 };
 const fields = ['id', 'gadget', 'map', 'rule', 'shown', 'target', 'area', 'targetAlso', 'unlock', 'gate', 'bubbleDx', 'celebrate', 'text', 'wait'];

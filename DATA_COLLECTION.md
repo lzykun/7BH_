@@ -18,7 +18,10 @@ The conditions share T1-T5, followed by these permutations of one task bank:
 
 The critical repair is in Type, not Movement. The guided tutorial's practice
 rule (configured in `guided-tutorial/steps.js`, currently Movement -> west, T1's
-Movement solution) is carried into T1, so the first T1 Run with it succeeds. Type and Movement selections are retained separately, but only the
+Movement solution) is carried into T1, so the first T1 Run with it succeeds.
+The conflict/practice map is the v23 practice layout mirrored left-right with
+the bays swapped: its set of solving Movement rules equals T1's, as in v23 with
+Type D. Type and Movement selections are retained separately, but only the
 active tab contributes to a Run. Switching tabs and editing values are distinct
 events. A tab switch does not by itself establish a tested strategy shift.
 
@@ -69,7 +72,7 @@ mode records no task events (`run_*`, `rule_value_*`, `rule_family_changed`,
 | `tutorial_started` | First entry (not on resume) | `gadgets_enabled`, `gadgets_disabled`, `steps`, `step_count`, `practice`, `carry_into_first_task` |
 | `tutorial_step_viewed` | Each step shown | `step_id`, `step_number`, `step_count`, `direction` (`forward`, `back`, `resume`, `restart`), `previous_step_id`, `previous_step_ms`, `gadget`, `round`, `celebrated` |
 | `tutorial_step_completed` | An action gate is first met | `step_id`, `gate`, `step_ms`, `round` |
-| `tutorial_run` | Each Run in the tutorial | `step_id`, `scene_id`, `ok`, `reason`, `active_family`, `selected_values`, `practice_requirement_met`, `trigger`, `frame_total`, `feedback_title`, `feedback_observation`, `round` |
+| `tutorial_run` | Each Run in the tutorial | `step_id`, `scene_id`, `layout_source` (`v23-practice-mirrored-swapped-bays` on the conflict/practice map `tutorial_conflict_practice`, else null), `ok`, `reason`, `active_family`, `selected_values`, `practice_requirement_met`, `trigger`, `frame_total`, `feedback_title`, `feedback_observation`, `round` |
 | `tutorial_rule_family_changed` | Type/Movement tab switch | `from_family`, `to_family`, `trigger`, `step_id`, `round` |
 | `tutorial_rule_value_toggled` | A value is selected or cleared | `family`, `value`, `selected`, `step_id`, `round` |
 | `tutorial_completed` | Finish on the last step | `step_id`, `steps`, `duration_ms`, `round`, `practice_rule`, `last_step_ms` |
