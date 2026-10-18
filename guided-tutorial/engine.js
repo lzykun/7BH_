@@ -55,7 +55,9 @@ function firstTaskOpens(){
 function settings(){
   const mode = firstTaskOpens();
   const carry = CONFIG.carryFor(mode);
-  return {firstTaskOpens:mode, carryIntoFirstTask:carry, initialActiveFamily:carry.family};
+  const dim = previewParam("guide_dim");
+  const dimLocked = dim === "1" ? true : dim === "0" ? false : CONFIG.dimLocked === true;
+  return {firstTaskOpens:mode, carryIntoFirstTask:carry, initialActiveFamily:carry.family, dimLocked};
 }
 
 // &guide_off=a,b turns gadgets off, in preview only. When T1 opens on Type,
@@ -128,17 +130,20 @@ function showConfigError(errors){
 
 /* ---------- locking ---------- */
 
-// One CSS rule per part, keyed on body[data-guide-unlock], survives app.js re-renders.
+// CSS rules per part, keyed on body[data-guide-unlock], survive app.js re-renders.
+// Locked parts are never clickable; the grey-out needs body.guided-dim-locked (dimLocked).
 function installLockStyles(){
   if($("guided-lock-styles")) return;
   const style = document.createElement("style");
   style.id = "guided-lock-styles";
-  style.textContent = Object.entries(CONFIG.parts).map(([part, selectors]) =>
-    selectors.map(selector =>
-      `body.guided-active:not([data-guide-unlock~="${part}"]) ${selector}`).join(",\n") +
-    "{opacity:.22;filter:grayscale(1);pointer-events:none;}"
+  const locked = (part, prefix) => CONFIG.parts[part].map(selector =>
+    `${prefix}:not([data-guide-unlock~="${part}"]) ${selector}`).join(",\n");
+  style.textContent = Object.keys(CONFIG.parts).map(part =>
+    `${locked(part, "body.guided-active")}{pointer-events:none;}\n` +
+    `${locked(part, "body.guided-active.guided-dim-locked")}{opacity:.22;filter:grayscale(1);}`
   ).join("\n");
   document.head.appendChild(style);
+  document.body.classList.toggle("guided-dim-locked", settings().dimLocked);
 }
 
 function applyLock(){
@@ -625,6 +630,7 @@ function start(options){
       steps:seq.map(step => step.id), step_count:seq.length,
       practice:{...CONFIG.practice}, alternative:{...CONFIG.alternative},
       first_task_opens:firstTaskOpens(), carry_into_first_task:settings().carryIntoFirstTask,
+      dim_locked:settings().dimLocked,
     });
   }
   if(options.phase === "comprehension"){

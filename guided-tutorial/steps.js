@@ -66,7 +66,8 @@ const MAPS = {
     }),
 };
 
-// Storyboard part names -> elements of routes/task.html. Locked parts are greyed.
+// Storyboard part names -> elements of routes/task.html. Locked parts are never
+// clickable; they are also greyed out when dimLocked is true.
 const PARTS = {
   goals:["#scene-goal"],
   board:[".scene-visual"],
@@ -191,6 +192,8 @@ window.GuidedTutorialConfig = Object.freeze({
   // Derived from firstTaskOpens (the preview can override the mode; see engine.js).
   carryIntoFirstTask:carryFor(FIRST_TASK_OPENS),
   initialActiveFamily:carryFor(FIRST_TASK_OPENS).family,
+  // Grey out locked parts. Off by default; the preview can set &guide_dim=1 or 0.
+  dimLocked:false,
   practiceRetryText:"Try again: select west on the Movement tab, then press Run rule.",
   labels:{back:"← Back", next:"Next →", finish:"Finish"},
   maps:MAPS,
