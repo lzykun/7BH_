@@ -12,7 +12,7 @@ const CHECKPOINT = "guided_tutorial";
 const BUBBLE_WIDTH = 380;
 const SPOT_PAD = 6;
 const GATES = new Set(["run-any", "run-success", "run-type-success", "family-move", "family-type", "value", "type-value"]);
-const RULE_STATES = new Set(["none", "move-tab", "move-N", "type-tab", "type-D", "move-both"]);
+const RULE_STATES = new Set(["none", "move-tab", "move-W", "type-tab", "type-D", "move-both", "final"]);
 
 const $ = id => document.getElementById(id);
 const data = () => window.StudyData;
@@ -40,20 +40,41 @@ function previewMode(){
   return (data()?.params || new URLSearchParams(location.search)).get("preview") === "1";
 }
 
-// &guide_off=a,b turns gadgets off, in preview only.
+function previewParam(name){
+  if(!previewMode()) return null;
+  return new URLSearchParams(location.search).get(name) || data()?.params.get(name) || null;
+}
+
+// Which tab T1 opens on. The preview can override it with &guide_first_task=type|movement.
+function firstTaskOpens(){
+  const requested = previewParam("guide_first_task");
+  return CONFIG.firstTaskModes.includes(requested) ? requested : CONFIG.firstTaskOpens;
+}
+
+// Effective settings: app.js reads the carried rule from here.
+function settings(){
+  const mode = firstTaskOpens();
+  const carry = CONFIG.carryFor(mode);
+  return {firstTaskOpens:mode, carryIntoFirstTask:carry, initialActiveFamily:carry.family};
+}
+
+// &guide_off=a,b turns gadgets off, in preview only. When T1 opens on Type,
+// alternative-feature stays on: the Type rule must be tested before it is carried.
 function enabledGadgets(){
   const enabled = Object.fromEntries(Object.keys(CONFIG.gadgets).map(id => [id, true]));
-  const off = previewMode()
-    ? (new URLSearchParams(location.search).get("guide_off") || data()?.params.get("guide_off") || "")
-    : "";
+  const off = previewParam("guide_off") || "";
   off.split(",").map(id => id.trim()).filter(Boolean).forEach(id => { enabled[id] = false; });
+  if(firstTaskOpens() === "type" && "alternative-feature" in enabled) enabled["alternative-feature"] = true;
   return enabled;
 }
+
+const textOf = step => typeof step.text === "string" ? step.text : step.text?.[firstTaskOpens()] || "";
 
 function validate(enabled){
   const errors = [];
   const stepIds = new Set(CONFIG.steps.map(step => step.id));
   if(enabled.core === false) errors.push('The "core" gadget cannot be turned off.');
+  if(!CONFIG.firstTaskModes.includes(CONFIG.firstTaskOpens)) errors.push(`Unknown firstTaskOpens "${CONFIG.firstTaskOpens}".`);
   Object.keys(enabled).forEach(id => {
     if(!CONFIG.gadgets[id]) errors.push(`Unknown gadget "${id}".`);
   });
@@ -67,6 +88,12 @@ function validate(enabled){
   CONFIG.steps.forEach(step => {
     if(!CONFIG.gadgets[step.gadget]) errors.push(`Step "${step.id}" uses unknown gadget "${step.gadget}".`);
     if(step.needs && !CONFIG.gadgets[step.needs]) errors.push(`Step "${step.id}" needs unknown gadget "${step.needs}".`);
+    (step.modes || []).forEach(mode => {
+      if(!CONFIG.firstTaskModes.includes(mode)) errors.push(`Step "${step.id}" has unknown mode "${mode}".`);
+    });
+    if(typeof step.text !== "string" && !CONFIG.firstTaskModes.every(mode => typeof step.text?.[mode] === "string")){
+      errors.push(`Step "${step.id}" needs text for every first-task mode.`);
+    }
     if(!CONFIG.maps[step.map]) errors.push(`Step "${step.id}" uses unknown map "${step.map}".`);
     if(!RULE_STATES.has(step.rule)) errors.push(`Step "${step.id}" has unknown rule state "${step.rule}".`);
     if(step.gate && !GATES.has(step.gate)) errors.push(`Step "${step.id}" has unknown gate "${step.gate}".`);
@@ -82,9 +109,11 @@ function validate(enabled){
   return errors;
 }
 
-// A step runs when its gadget is on and, if it names one, the gadget it "needs".
-function stepsFor(enabled){
-  return CONFIG.steps.filter(step => enabled[step.gadget] && (!step.needs || enabled[step.needs]));
+// A step runs when its gadget is on, the gadget it "needs" (if any) is on, and
+// its "modes" (if any) include the current first-task mode.
+function stepsFor(enabled, mode=firstTaskOpens()){
+  return CONFIG.steps.filter(step => enabled[step.gadget] && (!step.needs || enabled[step.needs]) &&
+    (!step.modes || step.modes.includes(mode)));
 }
 
 function showConfigError(errors){
@@ -187,11 +216,13 @@ function stepRuleState(step){
   // Type D stays in its tab after the participant selected it (none if the steps were turned off).
   const alternativeChosen = seq.some(item => item.gate === "type-value" && done.has(item.id));
   let family = "role";
-  if(step.rule === "move-tab") family = practice.family;
-  if(step.rule === "move-N"){ family = practice.family; withPractice(); }
-  if(step.rule === "type-tab"){ family = alternative.family; withPractice(); }
-  if(step.rule === "type-D"){ family = alternative.family; withPractice(); withAlternative(); }
-  if(step.rule === "move-both"){ family = practice.family; withPractice(); if(alternativeChosen) withAlternative(); }
+  // "final": both tested rules, with the tab T1 opens on.
+  const rule = step.rule === "final" ? (firstTaskOpens() === "type" ? "type-D" : "move-both") : step.rule;
+  if(rule === "move-tab") family = practice.family;
+  if(rule === "move-W"){ family = practice.family; withPractice(); }
+  if(rule === "type-tab"){ family = alternative.family; withPractice(); }
+  if(rule === "type-D"){ family = alternative.family; withPractice(); withAlternative(); }
+  if(rule === "move-both"){ family = practice.family; withPractice(); if(alternativeChosen) withAlternative(); }
   if(done.has(step.id)){
     if(step.gate === "family-move") family = practice.family;
     if(step.gate === "family-type") family = alternative.family;
@@ -340,7 +371,7 @@ function gateMet(){
 
 function render(){
   const step = seq[pos];
-  $("guided-message").innerHTML = step.text;
+  $("guided-message").innerHTML = textOf(step);
   const ok = gateMet();
   const wait = $("guided-wait");
   wait.hidden = ok || !step.wait;
@@ -506,6 +537,7 @@ function finishTutorial(){
   const step = seq[pos];
   record("tutorial_completed", {
     step_id:step.id, steps:seq.map(item => item.id), duration_ms:Date.now() - startedAt, round,
+    first_task_opens:firstTaskOpens(),
     practice_rule:lastPracticeRule, alternative_rule:lastAlternativeRule, last_step_ms:Date.now() - stepViewedAt,
   });
   // Kept from the v23 stage pages for analysis continuity (decision B9).
@@ -591,7 +623,8 @@ function start(options){
       gadgets_enabled:Object.keys(enabled).filter(id => enabled[id]),
       gadgets_disabled:Object.keys(enabled).filter(id => !enabled[id]),
       steps:seq.map(step => step.id), step_count:seq.length,
-      practice:{...CONFIG.practice}, alternative:{...CONFIG.alternative}, carry_into_first_task:{...CONFIG.carryIntoFirstTask},
+      practice:{...CONFIG.practice}, alternative:{...CONFIG.alternative},
+      first_task_opens:firstTaskOpens(), carry_into_first_task:settings().carryIntoFirstTask,
     });
   }
   if(options.phase === "comprehension"){
@@ -609,5 +642,5 @@ function start(options){
   return true;
 }
 
-window.GuidedTutorial = {phase, start, validate, enabledGadgets};
+window.GuidedTutorial = {phase, start, validate, enabledGadgets, settings, stepsFor};
 })();

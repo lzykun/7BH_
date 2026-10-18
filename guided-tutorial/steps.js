@@ -45,8 +45,8 @@ const span = (from, to) => Array.from({length:to - from + 1}, (_, index) => from
 
 // Open area in the top-left (rows 2-7, cols 2-7), where T1's roads are.
 // Map 2 (conflict and practice) is the v23 Type-D practice layout mirrored
-// left-right with the bays swapped. Both Movement west and Type D solve it;
-// Type D is tested last and carried into T1 without switching tabs again.
+// left-right with the bays swapped. Both Movement west and Type D solve it.
+// FIRST_TASK_OPENS picks which of the two is the open tab in T1.
 const MAPS = {
   m1:tutorialMap("guided_tutorial_m1",
     [...span(2, 7).map(col => [3, col]), ...span(2, 7).map(col => [5, col])],
@@ -98,6 +98,8 @@ const GADGETS = {
   features:{label:"Robot badges"},
   replay:{label:"Replay buttons"},
   "match-outline":{label:"Green outline", requires:"select-value"},
+  // Forced on when T1 opens on Type: the Type rule must be tested before it is carried.
+  "alternative-feature":{label:"Solve it with the other feature"},
 };
 
 const UNLOCK_RULES = ["board", "runbar", "status", "goals", "rules-head", "current", "context", "tabs", "values"];
@@ -130,41 +132,65 @@ const STEPS = [
   // Storyboard said north; west so the practice matches T1 (approved wording).
   {id:"select-value", gadget:"core", map:"m2", rule:"move-tab", shown:"end", target:"value:W", unlock:UNLOCK_RULES, gate:"value",
     text:"Robot 1 is moving <em>west ←</em>. Select <em>west</em> so that robot waits when the two meet.", wait:"Select west to continue"},
-  {id:"match-outline", gadget:"match-outline", map:"m2", rule:"move-N", shown:"start", target:"robot:1", unlock:UNLOCK_RULES,
+  {id:"match-outline", gadget:"match-outline", map:"m2", rule:"move-W", shown:"start", target:"robot:1", unlock:UNLOCK_RULES,
     text:"Robots that match your rule get a <em>green outline</em>. It shows who would wait. It does not mean the rule works yet."},
-  {id:"current-rule", gadget:"core", map:"m2", rule:"move-N", shown:"start", target:".current", unlock:UNLOCK_RULES,
+  {id:"current-rule", gadget:"core", map:"m2", rule:"move-W", shown:"start", target:".current", unlock:UNLOCK_RULES,
     text:"Your current rule is written out here in words."},
-  {id:"practice-run", gadget:"core", map:"m2", rule:"move-N", shown:"start", target:"#board", area:[[2, 2], [6, 6]], targetAlso:".runbar", unlock:UNLOCK_RULES, gate:"run-success",
+  {id:"practice-run", gadget:"core", map:"m2", rule:"move-W", shown:"start", target:"#board", area:[[2, 2], [6, 6]], targetAlso:".runbar", unlock:UNLOCK_RULES, gate:"run-success",
     text:"Press <em>Run rule</em> to test your rule.", wait:"Get both robots to their bays to continue"},
-  {id:"good-job", gadget:"core", celebrate:true, map:"m2", rule:"move-N", shown:"end", target:"#board", area:[[2, 2], [6, 6]], unlock:UNLOCK_RULES,
+  {id:"good-job", gadget:"core", celebrate:true, map:"m2", rule:"move-W", shown:"end", target:"#board", area:[[2, 2], [6, 6]], unlock:UNLOCK_RULES,
     text:"<span class='key'>Good job!</span> Robot 1 waited, robot 2 passed, and both reached their bays in the same Run."},
-  // Type practice is required: the final successful rule is carried into T1.
-  {id:"alt-intro", gadget:"core", map:"m2", rule:"move-N", shown:"end", target:"[data-part=tabs]", unlock:UNLOCK_RULES,
+  // Alternative feature: the same map solved with Type.
+  {id:"alt-intro", gadget:"alternative-feature", map:"m2", rule:"move-W", shown:"end", target:"[data-part=tabs]", unlock:UNLOCK_RULES,
     text:"You can always try the other feature. Let's solve the same map with <em>Type</em>."},
-  {id:"pick-type", gadget:"core", map:"m2", rule:"move-N", shown:"end", target:"#tab-type", unlock:UNLOCK_RULES, gate:"family-type",
+  {id:"pick-type", gadget:"alternative-feature", map:"m2", rule:"move-W", shown:"end", target:"#tab-type", unlock:UNLOCK_RULES, gate:"family-type",
     text:"Click <em>Type</em>. Your Movement selection is kept separately and won't change.", wait:"Click Type to continue"},
-  {id:"select-type", gadget:"core", map:"m2", rule:"type-tab", shown:"end", target:"value:role:loader", bubbleDx:-200, unlock:UNLOCK_RULES, gate:"type-value",
+  {id:"select-type", gadget:"alternative-feature", map:"m2", rule:"type-tab", shown:"end", target:"value:role:loader", bubbleDx:-200, unlock:UNLOCK_RULES, gate:"type-value",
     text:"Robot 1 is <em>Type D</em>. Select <em>D</em> so it waits.", wait:"Select D to continue"},
-  {id:"type-run", gadget:"core", map:"m2", rule:"type-D", shown:"start", target:"#board", area:[[2, 2], [6, 6]], targetAlso:".runbar", unlock:UNLOCK_RULES, gate:"run-type-success",
+  {id:"type-run", gadget:"alternative-feature", map:"m2", rule:"type-D", shown:"start", target:"#board", area:[[2, 2], [6, 6]], targetAlso:".runbar", unlock:UNLOCK_RULES, gate:"run-type-success",
     text:"Press <em>Run rule</em>. Only the open tab is used, so this Run uses your Type rule.", wait:"Get both robots to their bays to continue"},
-  {id:"type-good", gadget:"core", celebrate:true, map:"m2", rule:"type-D", shown:"end", target:"#board", area:[[2, 2], [6, 6]], unlock:UNLOCK_RULES,
-    text:"Both robots are home! Keep <em>Type D</em> selected for your first task."},
-  {id:"both-kept", gadget:"core", map:"m2", rule:"type-D", shown:"end", target:".rules", unlock:UNLOCK_RULES,
+  {id:"type-good", gadget:"alternative-feature", celebrate:true, map:"m2", rule:"type-D", shown:"end", target:"#board", area:[[2, 2], [6, 6]], unlock:UNLOCK_RULES,
+    text:{
+      type:"Both robots are home! Keep <em>Type D</em> selected for your first task.",
+      movement:"That works too! Both features can solve a map.",
+    }},
+  // Only when T1 opens on Movement, and only after the Type steps (otherwise there is no Type tab to come back from).
+  {id:"back-to-movement", gadget:"core", needs:"alternative-feature", modes:["movement"], map:"m2", rule:"type-D", shown:"end", target:"#tab-move", bubbleDx:-200, unlock:UNLOCK_RULES, gate:"family-move",
+    text:"Click <em>Movement</em>. Your <em>west</em> selection is still there.", wait:"Click Movement to continue"},
+  {id:"both-kept", gadget:"core", map:"m2", rule:"final", shown:"end", target:".rules", unlock:UNLOCK_RULES,
     text:"Each tab keeps its own selections, and both are carried into the next task. The open tab is the rule every robot follows when you press Run."},
-  {id:"run-budget", gadget:"core", map:"m2", rule:"type-D", shown:"end", target:null, unlock:UNLOCK_RULES,
+  {id:"run-budget", gadget:"core", map:"m2", rule:"final", shown:"end", target:null, unlock:UNLOCK_RULES,
     text:"In the tasks, you have <em>10 Runs per map</em>. Every Run counts, even with unchanged selections. Success on Run 10 counts. If some robots are still not home after Run 10, you move to the next map. Your last selections carry over. Practice and replay steps do not use task Runs."},
-  {id:"end", gadget:"core", map:"m2", rule:"type-D", shown:"end", target:null, unlock:UNLOCK_RULES,
-    text:"Next come a few quick questions, then your first task. <em>Type D</em> will stay selected."},
+  {id:"end", gadget:"core", map:"m2", rule:"final", shown:"end", target:null, unlock:UNLOCK_RULES,
+    text:{
+      type:"Next come a few quick questions, then your first task. <em>Type D</em> will stay selected.",
+      movement:"That's it! Next come a few quick questions, then your first task on the full warehouse map.",
+    }},
 ];
+
+// Which tab T1 opens on: "type" (Type D) or "movement" (Movement west).
+// The other feature's tested rule stays in its own tab.
+const FIRST_TASK_OPENS = "type";
+const PRACTICE = {family:"move_dir", value:"W"};
+// The alternative-feature answer (Type D; "loader" is D's value id).
+const ALTERNATIVE = {family:"role", value:"loader"};
+
+// The open tab and its rule when T1 starts, for a given first-task mode.
+function carryFor(mode){
+  return {...(mode === "movement" ? PRACTICE : ALTERNATIVE)};
+}
 
 window.GuidedTutorialConfig = Object.freeze({
   protocol:"guided-interface-v4-type-finish-bonus",
   // The practice answer. It must match T1's solution once the task set is final.
-  practice:{family:"move_dir", value:"W"},
-  // The alternative-feature answer (Type D; "loader" is D's value id).
-  alternative:{family:"role", value:"loader"},
-  // T1 starts with Type D; the tested Movement draft remains in its own tab.
-  carryIntoFirstTask:{family:"role", value:"loader"},
+  practice:PRACTICE,
+  alternative:ALTERNATIVE,
+  firstTaskOpens:FIRST_TASK_OPENS,
+  firstTaskModes:["type", "movement"],
+  carryFor,
+  // Derived from firstTaskOpens (the preview can override the mode; see engine.js).
+  carryIntoFirstTask:carryFor(FIRST_TASK_OPENS),
+  initialActiveFamily:carryFor(FIRST_TASK_OPENS).family,
   practiceRetryText:"Try again: select west on the Movement tab, then press Run rule.",
   labels:{back:"← Back", next:"Next →", finish:"Finish"},
   maps:MAPS,

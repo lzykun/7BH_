@@ -1733,7 +1733,8 @@ function carryPracticeRuleIntoFirstTask(){
 
   // The guided tutorial's config names the protocol and the rule carried into T1.
   const protocol = window.GuidedTutorialConfig?.protocol;
-  const carry = window.GuidedTutorialConfig?.carryIntoFirstTask;
+  // Derived from the config's firstTaskOpens (which the preview can override).
+  const carry = window.GuidedTutorial?.settings?.().carryIntoFirstTask || window.GuidedTutorialConfig?.carryIntoFirstTask;
   if(!protocol || !carry) return;
   const completedIndex = events.findLastIndex(event => event.event_type === "tutorial_completed");
   const completed = events[completedIndex];
@@ -3262,7 +3263,8 @@ function enterTaskAfterGuidedOnboarding(){
   document.body.classList.remove("task-tutorial-mode");
   window.StudyData?.setStage("task");
   scn = TASKS[curIndex];
-  activeRuleFamily = "role";
+  // T1's open tab follows the tutorial's firstTaskOpens; the carry-over below sets it too.
+  activeRuleFamily = window.GuidedTutorial?.settings?.().initialActiveFamily || "role";
   familyRuleDrafts = {move_dir:[], role:[]};
   lastResult = null;
   lastFrames = [];
