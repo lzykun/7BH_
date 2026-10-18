@@ -34,8 +34,9 @@ body.guided-active .rules-panel > *{transition:opacity .25s ease,filter .25s eas
 .guided-next.pulse{animation:guided-pulse 1.2s infinite;}
 @keyframes guided-pulse{50%{box-shadow:0 0 0 6px rgba(37,111,202,.25);}}
 
-/* Good job confetti: same particles as the task's success dialog, over the task surface. */
-.guided-layer .task-success-confetti{position:absolute;z-index:60;background:rgba(23,23,21,.2);}
+/* Good job confetti: the task's particles over the whole window. engine.js adds the
+   layer to <body>, outside the scaled task surface, so position:fixed covers the window. */
+body > .task-success-confetti{position:fixed;inset:0;z-index:95;background:rgba(23,23,21,.2);}
 
 .guided-config-error{position:fixed;left:16px;right:16px;top:16px;z-index:100;padding:12px 16px;background:#fbe1dc;border:2px solid #b42318;color:#7a1a10;font:600 15px Arial,sans-serif;}
 .guided-config-error[hidden]{display:none;}

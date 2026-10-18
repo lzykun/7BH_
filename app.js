@@ -40,6 +40,8 @@ const sceneGuidesSeen = new Set();
 // that mode nothing here writes trial data; the guide records its own events.
 let taskMode = "task";
 let tutorialRuleListener = null;
+// Runs-left counter state shown by the guided tutorial ({used, solved}); never a trial count.
+let tutorialBudgetDemo = null;
 
 const $ = id => document.getElementById(id);
 const URL_PARAMS = window.StudyData?.params || new URLSearchParams(window.location.search);
@@ -2518,11 +2520,14 @@ function updateContinueButton(){
     runButton.classList.toggle("secondary-run", !!lastResult?.ok);
     const budget = $("run-budget");
     if(budget){
-      budget.hidden = taskMode !== "task";
-      const left = Math.max(0,window.TrialPolicy.LIMIT-(state?.attempts || 0));
-      const solved = resolved && state.outcome === "success";
+      const demo = taskMode === "task" ? null : tutorialBudgetDemo;
+      budget.hidden = taskMode !== "task" && !demo;
+      const left = Math.max(0,window.TrialPolicy.LIMIT-(demo ? demo.used : state?.attempts || 0));
+      const solved = demo ? !!demo.solved : resolved && state.outcome === "success";
       budget.dataset.state = solved ? "solved" : left === 0 ? "empty" : left === 1 ? "last" : left <= 3 ? "low" : "ready";
       $("run-budget-number").textContent = solved ? "\u2713" : String(left);
+      if(solved) delete $("run-budget-number").dataset.limit;
+      else $("run-budget-number").dataset.limit = String(window.TrialPolicy.LIMIT);
       $("run-budget-label").textContent = solved ? "Solved" : left === 1 ? "Run left" : "Runs left";
       budget.querySelectorAll(".run-budget-track i").forEach((pip,index)=>pip.classList.toggle("is-used", index >= left));
     }
@@ -3209,6 +3214,19 @@ window.TaskHost = Object.freeze({
   },
   runFeedback(result){ return buildRunFeedback(result); },
   confetti(container, width, height){ return renderSuccessConfetti(container, width, height); },
+  // Tutorial only: show the Runs-left counter in a demo state ({used, solved}), or hide it (null).
+  showRunBudget(demo){
+    if(taskMode === "task") return;
+    const before = tutorialBudgetDemo;
+    tutorialBudgetDemo = demo ? {used:Math.max(0, Number(demo.used) || 0), solved:!!demo.solved} : null;
+    updateContinueButton();
+    const budget = $("run-budget");
+    if(budget && before && tutorialBudgetDemo && before.used !== tutorialBudgetDemo.used){
+      budget.classList.remove("is-changed");
+      void budget.offsetWidth;
+      budget.classList.add("is-changed");
+    }
+  },
   fitViewport(){ fitTaskViewport(); },
 });
 
@@ -3257,6 +3275,7 @@ window.addEventListener("pagehide", () => {stopTaskAnimation("page-hidden"); per
 function enterTaskAfterGuidedOnboarding(){
   stopTaskAnimation("tutorial-complete");
   clearSuccessConfetti();
+  tutorialBudgetDemo = null;
   taskMode = "task";
   tutorialRuleListener = null;
   tutorialRunListener = null;

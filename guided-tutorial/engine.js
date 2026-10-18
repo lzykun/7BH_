@@ -99,6 +99,7 @@ function validate(enabled){
     if(!CONFIG.maps[step.map]) errors.push(`Step "${step.id}" uses unknown map "${step.map}".`);
     if(!RULE_STATES.has(step.rule)) errors.push(`Step "${step.id}" has unknown rule state "${step.rule}".`);
     if(step.gate && !GATES.has(step.gate)) errors.push(`Step "${step.id}" has unknown gate "${step.gate}".`);
+    if(step.budget && !(Number.isInteger(step.budget.used ?? 0) && (step.budget.used ?? 0) >= 0)) errors.push(`Step "${step.id}" has an invalid budget.`);
     step.unlock.forEach(part => {
       if(!CONFIG.parts[part]) errors.push(`Step "${step.id}" unlocks unknown part "${part}".`);
     });
@@ -252,7 +253,23 @@ function setupStep(){
   host.resetRun();
   const completed = done.has(step.id);
   if(step.shown === "end" || (step.gate && completed && step.gate.startsWith("run"))) host.showRunEnd();
+  showBudget();
   applyLock();
+}
+
+/* ---------- Runs-left counter (demo only) ---------- */
+
+// Steps with a "budget" field show the task's Runs-left counter in a demo
+// state. A "count" step uses one demo Run when the participant presses Run;
+// trial counts are never touched.
+function budgetUsed(step){
+  const budget = step.budget;
+  return (budget.used || 0) + (budget.count && done.has(step.id) ? 1 : 0);
+}
+
+function showBudget(){
+  const step = seq[pos];
+  host.showRunBudget?.(step?.budget ? {used:budgetUsed(step), solved:!!step.budget.solved} : null);
 }
 
 /* ---------- spotlight and bubble ---------- */
@@ -418,8 +435,8 @@ function go(index, direction){
   if(step.celebrate && direction === "forward" && !celebrated.has(step.id)){
     celebrated.add(step.id);
     celebrate = true;
-    const {wrap, width, height} = wrapGeometry();
-    host.confetti($("guided-layer") || wrap, width, height);
+    // Over the whole window, as in the task (outside the scaled task surface).
+    host.confetti(document.body, window.innerWidth, window.innerHeight);
   }
   stepViewedAt = now;
   viewedStepId = step.id;
@@ -506,10 +523,12 @@ function onRunComplete(result, feedback, trigger){
     step_id:step.id, scene_id:host.sceneId(), layout_source:CONFIG.maps[step.map].layout_source || null,
     ok:!!result.ok, reason:result.reason || null,
     active_family:state.family, selected_values:state.values,
-    practice_requirement_met:practiceMet, alternative_requirement_met:alternativeMet, trigger, frame_total:Math.max(0, (result.frames?.length || 1) - 1),
+    practice_requirement_met:practiceMet, alternative_requirement_met:alternativeMet, trigger,
+    budget_demo:step.budget ? true : undefined, frame_total:Math.max(0, (result.frames?.length || 1) - 1),
     feedback_title:feedback?.title || null, feedback_observation:feedback?.observation || null, round,
   });
   if(step.gate === "run-any") complete(step, step.gate);
+  if(step.budget) showBudget();
   if(step.gate === "run-type-success" && alternativeMet){
     lastAlternativeRule = {family:state.family, values:state.values};
     complete(step, step.gate);
@@ -564,6 +583,7 @@ function openComprehension(){
       window.removeEventListener("click", blockOtherChoices, true);
       window.removeEventListener("resize", schedulePlace);
       $("guided-choice-styles")?.remove();
+      host.showRunBudget?.(null);
       onFinished();
     },
     onFailed(){

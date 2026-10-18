@@ -160,7 +160,8 @@ const STEPS = [
     text:"Click <em>Movement</em>. Your <em>west</em> selection is still there.", wait:"Click Movement to continue"},
   {id:"both-kept", gadget:"core", map:"m2", rule:"final", shown:"end", target:".rules", unlock:UNLOCK_RULES,
     text:"Each tab keeps its own selections, and both are carried into the next task. The open tab is the rule every robot follows when you press Run."},
-  {id:"run-budget", gadget:"core", map:"m2", rule:"final", shown:"end", target:null, unlock:UNLOCK_RULES,
+  // budget: show the task's Runs-left counter in a demo state (used Runs; count: a Run here uses one).
+  {id:"run-budget", gadget:"core", map:"m2", rule:"final", shown:"end", target:null, unlock:UNLOCK_RULES, budget:{used:0},
     text:"In the tasks, you have <em>10 Runs per map</em>. Every Run counts, even with unchanged selections. Success on Run 10 counts. If some robots are still not home after Run 10, you move to the next map. Your last selections carry over. Practice and replay steps do not use task Runs."},
   {id:"end", gadget:"core", map:"m2", rule:"final", shown:"end", target:null, unlock:UNLOCK_RULES,
     text:{

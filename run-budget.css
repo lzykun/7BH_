@@ -1,0 +1,69 @@
+/* Runs-left counter beside "Run rule" (routes/task.html #run-budget).
+   app.js updateContinueButton sets data-state (ready, low, last, empty, solved),
+   the number, the label and the used pips; data-limit supplies the "/10". */
+.run-budget{
+  --run-budget-color:#256fca;
+  position:relative;
+  flex:0 0 auto;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  grid-template-rows:auto 8px;
+  grid-template-areas:"label number" "track track";
+  column-gap:8px;
+  row-gap:4px;
+  align-items:center;
+  width:206px;
+  height:44px;
+  box-sizing:border-box;
+  padding:5px 10px 6px;
+  border:1px solid #c9d1d4;
+  background:#fff;
+  font-family:Arial,Helvetica,sans-serif;
+}
+.run-budget[hidden]{display:none;}
+.run-budget-label{
+  grid-area:label;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.06em;
+  line-height:1;
+  text-transform:uppercase;
+  color:#4b5a63;
+  white-space:nowrap;
+}
+.run-budget-number{
+  grid-area:number;
+  font-size:20px;
+  font-weight:700;
+  line-height:1;
+  color:var(--run-budget-color);
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+}
+.run-budget-number[data-limit]::after{
+  content:"/" attr(data-limit);
+  margin-left:1px;
+  font-size:12px;
+  font-weight:400;
+  color:#4b5a63;
+}
+.run-budget-track{
+  grid-area:track;
+  display:grid;
+  grid-template-columns:repeat(10,1fr);
+  gap:3px;
+}
+.run-budget-track i{display:block;height:8px;background:var(--run-budget-color);}
+.run-budget-track i.is-used{background:#e3e8ea;}
+
+.run-budget[data-state="low"]{--run-budget-color:#b36b00;border-color:#e2b866;}
+.run-budget[data-state="last"]{--run-budget-color:#b42318;border-color:#e7a29a;background:#fff6f5;}
+.run-budget[data-state="empty"]{--run-budget-color:#7a868c;background:#f3f5f6;}
+.run-budget[data-state="solved"]{--run-budget-color:#0f6e56;border-color:#9fd0bf;background:#f1faf6;}
+.run-budget[data-state="solved"] .run-budget-track i{background:#0f6e56;}
+.run-budget.is-changed{animation:run-budget-pulse .5s ease;}
+@keyframes run-budget-pulse{40%{transform:scale(1.06);}}
+
+@media (prefers-reduced-motion:reduce){
+  .run-budget.is-changed{animation:none;}
+}
