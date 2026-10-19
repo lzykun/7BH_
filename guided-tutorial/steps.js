@@ -91,6 +91,9 @@ const TARGETS = {
   "#tab-move":"#rule-family-tab-move_dir",
   "#tab-type":"#rule-family-tab-role",
   ".current":".simple-current-rule",
+  "#run":"#run",
+  "#run-budget":"#run-budget",
+  ".step-nav":".step-nav",
 };
 
 const GADGETS = {
@@ -121,7 +124,7 @@ const STEPS = [
   {id:"run-2", gadget:"core", map:"m2", rule:"none", shown:"start", target:"#board", area:[[2, 2], [6, 6]], targetAlso:".runbar", unlock:["board", "runbar", "status"], gate:"run-any",
     text:"Sometimes the layout gets more complicated. Press <em>Run rule</em> and see what happens on this map.", wait:"Press Run rule to continue"},
   {id:"clash", gadget:"core", map:"m2", rule:"none", shown:"end", target:"#status", unlock:["board", "runbar", "status"],
-    text:"The two robots tried to enter the <em>same square</em> at the same time and collided. Robots in a collision stop."},
+    text:"The two robots tried to enter the <em>same square</em> at the same time and collided. Robots in a collision stop; <em>other robots keep moving</em>."},
   {id:"task", gadget:"core", map:"m2", rule:"none", shown:"end", target:null, unlock:["board", "runbar", "status", "goals"],
     text:"<span class='key'>Your task is to coordinate the robots and prevent them from colliding.</span>"},
   {id:"rules", gadget:"core", map:"m2", rule:"none", shown:"end", target:".rules", bubbleDx:-70, unlock:["board", "runbar", "status", "goals", "rules-head", "current", "context"],
@@ -159,10 +162,22 @@ const STEPS = [
   {id:"back-to-movement", gadget:"core", needs:"alternative-feature", modes:["movement"], map:"m2", rule:"type-D", shown:"end", target:"#tab-move", bubbleDx:-200, unlock:UNLOCK_RULES, gate:"family-move",
     text:"Click <em>Movement</em>. Your <em>west</em> selection is still there.", wait:"Click Movement to continue"},
   {id:"both-kept", gadget:"core", map:"m2", rule:"final", shown:"end", target:".rules", unlock:UNLOCK_RULES,
-    text:"Each tab keeps its own selections, and both are carried into the next task. The open tab is the rule every robot follows when you press Run."},
-  // budget: show the task's Runs-left counter in a demo state (used Runs; count: a Run here uses one).
-  {id:"run-budget", gadget:"core", map:"m2", rule:"final", shown:"end", target:null, unlock:UNLOCK_RULES, budget:{used:0},
-    text:"In the tasks, you have <em>10 Runs per map</em>. Every Run counts, even with unchanged selections. Success on Run 10 counts. If some robots are still not home after Run 10, you move to the next map. Your last selections carry over. Practice and replay steps do not use task Runs."},
+    text:"Each tab keeps its own selections, and both are carried into the next task. You can change them at any time. The open tab is the rule every robot follows when you press Run."},
+  // Runs-left counter, step by step. budget: the counter's demo state; used Runs, or "left";
+  // count: the first Run press here uses one; tag: "practice" or "example"; runLabel: the
+  // Run button's example label (disabled). {maxRuns} and {bonus} come from STUDY_CONFIG.
+  {id:"budget-intro", gadget:"core", map:"m2", rule:"final", shown:"start", target:"#run-budget", unlock:UNLOCK_RULES, budget:{used:0, tag:"practice"},
+    text:"In the tasks, each task gives you <em>{maxRuns} Runs</em>. This counter shows how many you have left. Here it is just for practice."},
+  {id:"budget-cost", gadget:"core", map:"m2", rule:"final", shown:"start", target:"#run-budget", targetAlso:"#run", unlock:UNLOCK_RULES, budget:{used:0, count:true, tag:"practice"}, gate:"run-any",
+    text:"Every press of <em>Run rule</em> uses one Run, even if you haven't changed your selections. Press it now and watch the counter.", wait:"Press Run rule to continue"},
+  {id:"budget-replay", gadget:"core", map:"m2", rule:"final", shown:"end", target:".step-nav", targetAlso:"#run-budget", unlock:UNLOCK_RULES, budget:{used:1, tag:"practice"}, gate:"replay-step",
+    text:"Replaying with the <em>← →</em> buttons is free. It never uses a Run. Try it.", wait:"Press ← or → to continue"},
+  {id:"budget-last", gadget:"core", map:"m2", rule:"final", shown:"start", target:"#run-budget", unlock:UNLOCK_RULES, budget:{left:1, tag:"example"},
+    text:"On your last Run, the counter turns red. If every robot gets home on <em>Run {maxRuns}</em>, the task still counts as solved."},
+  {id:"budget-out", gadget:"core", map:"m2", rule:"final", shown:"start", target:"#run-budget", targetAlso:"#run", unlock:UNLOCK_RULES, budget:{left:0, tag:"example", runLabel:"Next task"},
+    text:"If some robots are still not home after Run {maxRuns}, you move on to the next task. Your <em>last selections stay selected</em>."},
+  {id:"budget-bonus", gadget:"core", map:"m2", rule:"final", shown:"start", target:"#run-budget", unlock:UNLOCK_RULES, budget:{solved:true, tag:"example"},
+    text:"Each task you solve earns a <em>{bonus} bonus</em>, on top of your base payment. A solved task shows a green tick here."},
   {id:"end", gadget:"core", map:"m2", rule:"final", shown:"end", target:null, unlock:UNLOCK_RULES,
     text:{
       type:"Next come a few quick questions, then your first task. <em>Type D</em> will stay selected.",
@@ -197,6 +212,8 @@ window.GuidedTutorialConfig = Object.freeze({
   dimLocked:false,
   practiceRetryText:"Try again: select west on the Movement tab, then press Run rule.",
   labels:{back:"← Back", next:"Next →", finish:"Finish"},
+  // Tag under the demo counter.
+  budgetTags:{practice:"Practice", example:"Example"},
   maps:MAPS,
   parts:PARTS,
   targets:TARGETS,

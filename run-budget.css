@@ -47,6 +47,27 @@
   font-weight:400;
   color:#4b5a63;
 }
+/* Tutorial demo only: "+£0.10" beside the tick, and the Practice/Example tag. */
+.run-budget-number[data-note]::after{
+  content:" " attr(data-note);
+  font-size:12px;
+  font-weight:700;
+}
+.run-budget-tag{
+  position:absolute;
+  left:50%;
+  bottom:-24px;
+  transform:translateX(-50%);
+  padding:2px 6px;
+  background:#4b5a63;
+  color:#fff;
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+.run-budget-tag[hidden]{display:none;}
 .run-budget-track{
   grid-area:track;
   display:grid;

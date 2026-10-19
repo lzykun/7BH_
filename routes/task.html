@@ -49,6 +49,7 @@
             <strong class="run-budget-number" id="run-budget-number">10</strong>
             <span class="run-budget-label" id="run-budget-label">Runs left</span>
             <span class="run-budget-track" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="run-budget-tag" id="run-budget-tag" hidden></span>
           </div>
           <div class="step-nav" aria-label="Animation step controls">
             <button class="btn step-button" id="prev" aria-label="Previous step" title="Previous step">←</button>
@@ -174,10 +175,20 @@
     <section class="comprehension-result" id="comprehension-result" hidden aria-live="polite">
       <h2 id="comprehension-result-title"></h2>
       <p id="comprehension-result-copy"></p>
-      <p id="comprehension-bonus" hidden></p>
+      <div class="comprehension-bonus" id="comprehension-bonus" hidden>
+        <div class="comprehension-bonus-card">
+          <div class="comprehension-bonus-amount"><span id="comprehension-bonus-amount"></span><small>bonus</small></div>
+          <p>for every task you solve, on top of your base payment.</p>
+        </div>
+        <ul class="comprehension-reminders">
+          <li><strong><span data-max-runs></span> Runs per task</strong>Every Run counts. Replays are free.</li>
+          <li><strong>Run <span data-max-runs></span> counts</strong>Solving the task on your last Run still earns the bonus.</li>
+          <li><strong>Your rule stays</strong>Your selections carry over to the next task.</li>
+        </ul>
+      </div>
       <div class="comprehension-button-group">
         <button class="comprehension-button" id="comprehension-back-to-tutorial" type="button" hidden>Back to tutorial</button>
-        <button class="comprehension-button" id="comprehension-start" type="button" hidden>Start task</button>
+        <button class="comprehension-button" id="comprehension-start" type="button" hidden>Start the first task</button>
       </div>
     </section>
   </main>

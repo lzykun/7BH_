@@ -11,7 +11,7 @@ const PROTOCOL = CONFIG?.protocol || null;
 const CHECKPOINT = "guided_tutorial";
 const BUBBLE_WIDTH = 380;
 const SPOT_PAD = 6;
-const GATES = new Set(["run-any", "run-success", "run-type-success", "family-move", "family-type", "value", "type-value"]);
+const GATES = new Set(["run-any", "run-success", "run-type-success", "family-move", "family-type", "value", "type-value", "replay-step"]);
 const RULE_STATES = new Set(["none", "move-tab", "move-W", "type-tab", "type-D", "move-both", "final"]);
 
 const $ = id => document.getElementById(id);
@@ -70,7 +70,12 @@ function enabledGadgets(){
   return enabled;
 }
 
-const textOf = step => typeof step.text === "string" ? step.text : step.text?.[firstTaskOpens()] || "";
+// Amounts in participant text come from STUDY_CONFIG, never literals.
+const maxRuns = () => window.STUDY_CONFIG?.max_runs_per_trial;
+const bonusText = () => new Intl.NumberFormat("en-GB", {style:"currency", currency:"GBP"})
+  .format((window.STUDY_CONFIG?.payment?.per_success_pence || 0) / 100);
+const fill = text => text.replace(/\{maxRuns\}/g, String(maxRuns())).replace(/\{bonus\}/g, bonusText());
+const textOf = step => fill(typeof step.text === "string" ? step.text : step.text?.[firstTaskOpens()] || "");
 
 function validate(enabled){
   const errors = [];
@@ -99,7 +104,11 @@ function validate(enabled){
     if(!CONFIG.maps[step.map]) errors.push(`Step "${step.id}" uses unknown map "${step.map}".`);
     if(!RULE_STATES.has(step.rule)) errors.push(`Step "${step.id}" has unknown rule state "${step.rule}".`);
     if(step.gate && !GATES.has(step.gate)) errors.push(`Step "${step.id}" has unknown gate "${step.gate}".`);
-    if(step.budget && !(Number.isInteger(step.budget.used ?? 0) && (step.budget.used ?? 0) >= 0)) errors.push(`Step "${step.id}" has an invalid budget.`);
+    if(step.budget){
+      const {used = 0, left = 0, tag} = step.budget;
+      if(!Number.isInteger(used) || used < 0 || !Number.isInteger(left) || left < 0 || ("used" in step.budget && "left" in step.budget) ||
+        (tag && !CONFIG.budgetTags?.[tag])) errors.push(`Step "${step.id}" has an invalid budget.`);
+    }
     step.unlock.forEach(part => {
       if(!CONFIG.parts[part]) errors.push(`Step "${step.id}" unlocks unknown part "${part}".`);
     });
@@ -260,16 +269,40 @@ function setupStep(){
 /* ---------- Runs-left counter (demo only) ---------- */
 
 // Steps with a "budget" field show the task's Runs-left counter in a demo
-// state. A "count" step uses one demo Run when the participant presses Run;
-// trial counts are never touched.
+// state. On a "count" step the first press of Run uses one demo Run; trial
+// counts are never touched.
+let budgetSpent = new Set();
+
 function budgetUsed(step){
   const budget = step.budget;
-  return (budget.used || 0) + (budget.count && done.has(step.id) ? 1 : 0);
+  const base = "left" in budget ? maxRuns() - budget.left : budget.used || 0;
+  return base + (budget.count && (budgetSpent.has(step.id) || done.has(step.id)) ? 1 : 0);
 }
 
 function showBudget(){
   const step = seq[pos];
-  host.showRunBudget?.(step?.budget ? {used:budgetUsed(step), solved:!!step.budget.solved} : null);
+  const budget = step?.budget;
+  host.showRunBudget?.(budget ? {
+    used:budgetUsed(step), solved:!!budget.solved,
+    tag:budget.tag ? CONFIG.budgetTags[budget.tag] : null,
+    solvedNote:budget.solved ? `+${bonusText()}` : null,
+    runLabel:budget.runLabel || null,
+  } : null);
+}
+
+function onRunStart(){
+  const step = seq[pos];
+  if(!active || !step?.budget?.count || budgetSpent.has(step.id) || done.has(step.id)) return;
+  budgetSpent.add(step.id);
+  showBudget();
+}
+
+// The step back/forward buttons (replay); never a Run.
+function onFrameStep(direction){
+  const step = seq[pos];
+  if(!active || !step) return;
+  if(step.gate === "replay-step") complete(step, step.gate);
+  render();
 }
 
 /* ---------- spotlight and bubble ---------- */
@@ -397,7 +430,7 @@ function render(){
   const ok = gateMet();
   const wait = $("guided-wait");
   wait.hidden = ok || !step.wait;
-  wait.textContent = step.wait || "";
+  wait.textContent = step.wait ? fill(step.wait) : "";
   const next = $("guided-next");
   next.disabled = !ok;
   next.classList.toggle("pulse", !!step.gate && ok);
@@ -627,6 +660,8 @@ function start(options){
   data()?.setContext({task_id:null, task_item_id:null, attempt_index:null, rulebook_revision:null});
   host.onRuleChange(onRuleEvent);
   host.onRunComplete(onRunComplete);
+  host.onRunStart?.(onRunStart);
+  host.onFrameStep?.(onFrameStep);
   $("guided-back").onclick = back;
   $("guided-next").onclick = next;
   document.addEventListener("keydown", onKeydown, true);

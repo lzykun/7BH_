@@ -40,8 +40,11 @@ const sceneGuidesSeen = new Set();
 // that mode nothing here writes trial data; the guide records its own events.
 let taskMode = "task";
 let tutorialRuleListener = null;
-// Runs-left counter state shown by the guided tutorial ({used, solved}); never a trial count.
+// Runs-left counter state shown by the guided tutorial ({used, solved, tag, solvedNote,
+// runLabel}); never a trial count.
 let tutorialBudgetDemo = null;
+let tutorialRunStartListener = null;
+let tutorialFrameStepListener = null;
 
 const $ = id => document.getElementById(id);
 const URL_PARAMS = window.StudyData?.params || new URLSearchParams(window.location.search);
@@ -2528,6 +2531,18 @@ function updateContinueButton(){
       $("run-budget-number").textContent = solved ? "\u2713" : String(left);
       if(solved) delete $("run-budget-number").dataset.limit;
       else $("run-budget-number").dataset.limit = String(window.TrialPolicy.LIMIT);
+      if(demo?.solvedNote && solved) $("run-budget-number").dataset.note = demo.solvedNote;
+      else delete $("run-budget-number").dataset.note;
+      const tag = $("run-budget-tag");
+      if(tag){
+        tag.hidden = !demo?.tag;
+        tag.textContent = demo?.tag || "";
+      }
+      // An example of the button after the last Run; it does nothing in the tutorial.
+      if(demo?.runLabel){
+        runButton.textContent = demo.runLabel;
+        runButton.disabled = true;
+      }
       $("run-budget-label").textContent = solved ? "Solved" : left === 1 ? "Run left" : "Runs left";
       budget.querySelectorAll(".run-budget-track i").forEach((pip,index)=>pip.classList.toggle("is-used", index >= left));
     }
@@ -3087,6 +3102,7 @@ function playTutorialRun(trigger){
     runButton.classList.add("primary");
     runButton.classList.remove("secondary-run", "is-guided");
   }
+  tutorialRunStartListener?.(trigger);
   const norms = currentNorms();
   const result = simulateLocalContinuation(scn, norms, new Set());
   result.testedNorms = norms.map(norm => ({
@@ -3204,6 +3220,9 @@ window.TaskHost = Object.freeze({
   },
   onRuleChange(callback){ tutorialRuleListener = callback; },
   onRunComplete(callback){ tutorialRunListener = callback; },
+  onRunStart(callback){ tutorialRunStartListener = callback; },
+  // Called after a press of the step back/forward buttons in tutorial mode.
+  onFrameStep(callback){ tutorialFrameStepListener = callback; },
   // Pure: simulate a scene (or the current tutorial scene) under a {family, values} rule.
   simulate(rawScene, state){
     const scene = rawScene ? normalizeTask(structuredClone(rawScene)) : scn;
@@ -3218,7 +3237,8 @@ window.TaskHost = Object.freeze({
   showRunBudget(demo){
     if(taskMode === "task") return;
     const before = tutorialBudgetDemo;
-    tutorialBudgetDemo = demo ? {used:Math.max(0, Number(demo.used) || 0), solved:!!demo.solved} : null;
+    tutorialBudgetDemo = demo ? {used:Math.max(0, Number(demo.used) || 0), solved:!!demo.solved,
+      tag:demo.tag || null, solvedNote:demo.solvedNote || null, runLabel:demo.runLabel || null} : null;
     updateContinueButton();
     const budget = $("run-budget");
     if(budget && before && tutorialBudgetDemo && before.used !== tutorialBudgetDemo.used){
@@ -3276,6 +3296,8 @@ function enterTaskAfterGuidedOnboarding(){
   stopTaskAnimation("tutorial-complete");
   clearSuccessConfetti();
   tutorialBudgetDemo = null;
+  tutorialRunStartListener = null;
+  tutorialFrameStepListener = null;
   taskMode = "task";
   tutorialRuleListener = null;
   tutorialRunListener = null;
@@ -3313,8 +3335,14 @@ if(!TASKS.length){
   const researcherPanel = $("researcher-panel");
   if(researcherPanel) researcherPanel.hidden = !DEBUG_UI;
   $("run").onclick = () => play("manual");
-  $("prev").onclick = () => showFrameAt(frameIndex - 1, true, "manual");
-  $("next").onclick = () => showFrameAt(frameIndex + 1, true, "manual");
+  $("prev").onclick = () => {
+    showFrameAt(frameIndex - 1, true, "manual");
+    if(taskMode !== "task") tutorialFrameStepListener?.("prev");
+  };
+  $("next").onclick = () => {
+    showFrameAt(frameIndex + 1, true, "manual");
+    if(taskMode !== "task") tutorialFrameStepListener?.("next");
+  };
   $("guide-close").onclick = closeSceneGuide;
   $("guide-backdrop").onclick = event => {
     if(event.target.id === "guide-backdrop") closeSceneGuide();

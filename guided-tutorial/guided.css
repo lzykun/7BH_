@@ -46,6 +46,20 @@ body > .task-success-confetti{position:fixed;inset:0;z-index:95;background:rgba(
 .guided-comprehension-backdrop[hidden]{display:none;}
 .guided-comprehension-backdrop .guided-comprehension-dialog{width:min(900px,100%);margin:auto;padding:32px;box-sizing:border-box;background:#f4f4f4;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.25);}
 
+/* Comprehension pass screen: bonus card and three reminders. */
+.comprehension-bonus{margin:18px 0 22px;}
+.comprehension-bonus[hidden]{display:none;}
+.comprehension-bonus-card{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px;align-items:center;padding:18px 20px;margin-bottom:18px;background:#f1faf6;border:1px solid #9fd0bf;}
+.comprehension-bonus-amount{font-size:44px;font-weight:700;line-height:1;color:#0f6e56;font-variant-numeric:tabular-nums;}
+.comprehension-bonus-amount small{display:block;margin-top:6px;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;}
+.comprehension-result .comprehension-bonus-card p{margin:0;font-size:15px;line-height:1.45;color:#172b3d;}
+.comprehension-reminders{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0;padding:0;list-style:none;}
+.comprehension-reminders li{padding:12px 12px 13px;border:1px solid #d8e2df;background:#fff;font-size:14px;line-height:1.35;color:#172b3d;}
+.comprehension-reminders strong{display:block;margin-bottom:4px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:#256fca;}
+@media (max-width:640px){
+  .comprehension-bonus-card,.comprehension-reminders{grid-template-columns:minmax(0,1fr);}
+}
+
 @media (prefers-reduced-motion:reduce){
   .guided-bubble,.guided-next.pulse,
   body.guided-active .scene-panel > *,body.guided-active .rules-panel > *{transition:none;animation:none;}

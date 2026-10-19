@@ -103,7 +103,8 @@ const ids = query => { const g = load(query).window.GuidedTutorial; return { ste
 const head = ['welcome', 'fullscreen', 'map', 'badges', 'run-1', 'replay', 'run-2', 'clash', 'task', 'rules', 'features',
   'pick-movement', 'select-value', 'match-outline', 'current-rule', 'practice-run', 'good-job'];
 const alt = ['alt-intro', 'pick-type', 'select-type', 'type-run', 'type-good'];
-const tail = ['both-kept', 'run-budget', 'end'];
+const budgetSteps = ['budget-intro', 'budget-cost', 'budget-replay', 'budget-last', 'budget-out', 'budget-bonus'];
+const tail = ['both-kept', ...budgetSteps, 'end'];
 const sequences = {
   '': [...head, ...alt, ...tail],
   '&guide_off=alternative-feature': [...head, ...alt, ...tail], // forced on in Type mode
@@ -130,7 +131,7 @@ const TEXT = {
   'run-1': ['Robots always take the shortest route to their bay. Press <em>Run rule</em> to watch them move.', 'Press Run rule to continue'],
   replay: ['Use the <em>← →</em> buttons to replay a run one step at a time.'],
   'run-2': ['Sometimes the layout gets more complicated. Press <em>Run rule</em> and see what happens on this map.', 'Press Run rule to continue'],
-  clash: ['The two robots tried to enter the <em>same square</em> at the same time and collided. Robots in a collision stop.'],
+  clash: ['The two robots tried to enter the <em>same square</em> at the same time and collided. Robots in a collision stop; <em>other robots keep moving</em>.'],
   task: ["<span class='key'>Your task is to coordinate the robots and prevent them from colliding.</span>"],
   rules: ['You coordinate them with a <em>waiting rule</em>. When two robots meet, your rule decides which one waits.'],
   features: ['A rule can use one of two robot features: <em>Type</em> (the letter) or <em>Movement</em> direction (the arrow).'],
@@ -146,8 +147,14 @@ const TEXT = {
   'type-run': ['Press <em>Run rule</em>. Only the open tab is used, so this Run uses your Type rule.', 'Get both robots to their bays to continue'],
   'type-good': [{ type: 'Both robots are home! Keep <em>Type D</em> selected for your first task.', movement: 'That works too! Both features can solve a map.' }],
   'back-to-movement': ['Click <em>Movement</em>. Your <em>west</em> selection is still there.', 'Click Movement to continue'],
-  'both-kept': ['Each tab keeps its own selections, and both are carried into the next task. The open tab is the rule every robot follows when you press Run.'],
-  'run-budget': ['In the tasks, you have <em>10 Runs per map</em>. Every Run counts, even with unchanged selections. Success on Run 10 counts. If some robots are still not home after Run 10, you move to the next map. Your last selections carry over. Practice and replay steps do not use task Runs.'],
+  'both-kept': ['Each tab keeps its own selections, and both are carried into the next task. You can change them at any time. The open tab is the rule every robot follows when you press Run.'],
+  // {maxRuns} and {bonus} are filled from STUDY_CONFIG (max_runs_per_trial, payment.per_success_pence).
+  'budget-intro': ['In the tasks, each task gives you <em>{maxRuns} Runs</em>. This counter shows how many you have left. Here it is just for practice.'],
+  'budget-cost': ["Every press of <em>Run rule</em> uses one Run, even if you haven't changed your selections. Press it now and watch the counter.", 'Press Run rule to continue'],
+  'budget-replay': ['Replaying with the <em>← →</em> buttons is free. It never uses a Run. Try it.', 'Press ← or → to continue'],
+  'budget-last': ['On your last Run, the counter turns red. If every robot gets home on <em>Run {maxRuns}</em>, the task still counts as solved.'],
+  'budget-out': ['If some robots are still not home after Run {maxRuns}, you move on to the next task. Your <em>last selections stay selected</em>.'],
+  'budget-bonus': ['Each task you solve earns a <em>{bonus} bonus</em>, on top of your base payment. A solved task shows a green tick here.'],
   end: [{ type: 'Next come a few quick questions, then your first task. <em>Type D</em> will stay selected.', movement: "That's it! Next come a few quick questions, then your first task on the full warehouse map." }],
 };
 same(config.steps.map(step => step.id), Object.keys(TEXT), 'Every step has approved text, in order');
@@ -157,7 +164,13 @@ for (const step of config.steps) {
   assert.equal(step.wait ?? null, wait ?? null, `Approved wait note: ${step.id}`);
   if (step.gate) assert.ok(step.wait, `Gated step ${step.id} has a wait note`);
 }
-assert.ok(!config.steps.some(step => /bonus|payment|£/i.test(JSON.stringify(step.text))), 'No step mentions the bonus or payment');
+// Amounts are never literals: no "£", no Run count in the text; {maxRuns} and {bonus} only.
+for (const item of config.steps) {
+  const text = JSON.stringify([item.text, item.wait ?? '']);
+  assert.ok(!/£|\b10\b/.test(text), `${item.id}: no literal amounts`);
+  for (const name of text.match(/\{(\w+)\}/g) || []) assert.ok(['{maxRuns}', '{bonus}'].includes(name), `${item.id}: known placeholder ${name}`);
+}
+same(config.budgetTags, { practice: 'Practice', example: 'Example' }, 'Approved counter tags');
 assert.equal(config.practiceRetryText, 'Try again: select west on the Movement tab, then press Run rule.');
 
 // 5. Step structure.
@@ -171,8 +184,14 @@ assert.ok(step('good-job').celebrate && step('type-good').celebrate, 'Both succe
 assert.ok(!config.steps.some(item => item.rule === 'move-N'), 'move-N is renamed move-W');
 for (const id of ['match-outline', 'current-rule', 'practice-run', 'good-job', 'alt-intro', 'pick-type']) assert.equal(step(id).rule, 'move-W');
 for (const id of tail) assert.equal(step(id).rule, 'final', `${id} shows the rule T1 opens with`);
-same(config.steps.filter(item => item.budget).map(item => item.id), ['run-budget'], 'Budget steps');
+same(config.steps.filter(item => item.budget).map(item => item.id), budgetSteps, 'Budget steps');
 for (const item of config.steps.filter(item => item.budget)) assert.equal(item.map, 'm2');
+same(budgetSteps.map(id => step(id).budget), [
+  { used: 0, tag: 'practice' }, { used: 0, count: true, tag: 'practice' }, { used: 1, tag: 'practice' },
+  { left: 1, tag: 'example' }, { left: 0, tag: 'example', runLabel: 'Next task' }, { solved: true, tag: 'example' },
+], 'Counter demo states: 10, 10 -> 9 on the Run, 9 while replaying, last Run, none left, solved');
+assert.equal(step('budget-cost').gate, 'run-any');
+assert.equal(step('budget-replay').gate, 'replay-step');
 
 // 6. Gadget switches: each can be turned off unless a step needs it; core cannot.
 const all = Object.fromEntries(Object.keys(config.gadgets).map(id => [id, true]));
@@ -221,7 +240,8 @@ for (const selector of selectors) {
   assert.ok(inPage || drawnByApp[selector]?.test(appJs), `Selector ${selector} exists`);
 }
 for (const id of ['guided-layer', 'guided-spot', 'guided-bubble', 'guided-message', 'guided-wait', 'guided-back', 'guided-next', 'guided-count',
-  'guided-comprehension', 'guided-config-error', 'run-budget', 'run-budget-number', 'run-budget-label']) {
+  'guided-comprehension', 'guided-config-error', 'run-budget', 'run-budget-number', 'run-budget-label', 'run-budget-tag',
+  'comprehension-bonus', 'comprehension-bonus-amount', 'comprehension-start']) {
   assert.ok(taskHtml.includes(`id="${id}"`), `task.html has #${id}`);
 }
 
@@ -236,7 +256,22 @@ assert.equal(taskHtml.match(/<span class="run-budget-track"[^>]*>(.*?)<\/span>/)
 assert.match(read('guided-tutorial/guided.css'), /body > \.task-success-confetti\{position:fixed;inset:0;/, 'Tutorial confetti covers the window');
 assert.match(read('guided-tutorial/engine.js'), /host\.confetti\(document\.body, window\.innerWidth, window\.innerHeight\)/, 'Confetti spreads over the window');
 
-// 10. Comprehension answers match the receiver's.
+// 10. Comprehension pass screen (approved wording; amounts filled from STUDY_CONFIG).
+const comprehensionJs = read('guided-tutorial/comprehension.js');
+assert.match(comprehensionJs, /passed \? "You're ready" : "Please try again"/);
+assert.match(comprehensionJs, /`All \$\{Object\.keys\(COMPREHENSION_ANSWERS\)\.length\} answers are correct\.`/);
+assert.match(comprehensionJs, /per_success_pence/);
+assert.match(comprehensionJs, /max_runs_per_trial/);
+for (const text of ['<small>bonus</small>', '<p>for every task you solve, on top of your base payment.</p>',
+  '<li><strong><span data-max-runs></span> Runs per task</strong>Every Run counts. Replays are free.</li>',
+  '<li><strong>Run <span data-max-runs></span> counts</strong>Solving the task on your last Run still earns the bonus.</li>',
+  '<li><strong>Your rule stays</strong>Your selections carry over to the next task.</li>',
+  'id="comprehension-start" type="button" hidden>Start the first task</button>']) {
+  assert.ok(taskHtml.includes(text), `Pass screen: ${text}`);
+}
+assert.ok(!/£|\b10 Runs/.test(taskHtml.slice(taskHtml.indexOf('id="comprehension-bonus"'), taskHtml.indexOf('id="comprehension-start"'))), 'Pass screen has no literal amounts');
+
+// 11. Comprehension answers match the receiver's.
 const server = read('server-common.php').match(/foreach \(\[('check1'[^\]]*)\] as \$key=>\$value\)/)[1];
 const serverAnswers = Object.fromEntries([...server.matchAll(/'(check\d)'=>'([a-d])'/g)].map(match => [match[1], match[2]]));
 same(page.window.GuidedComprehension.answers, serverAnswers, 'Comprehension answers match server-common.php');

@@ -58,16 +58,19 @@ function resetForm(){
 function showResult(passed){
   $("comprehension-questions").hidden = true;
   $("comprehension-result").hidden = false;
-  $("comprehension-result-title").textContent = passed ? "You are ready" : "Please try again";
+  $("comprehension-result-title").textContent = passed ? "You're ready" : "Please try again";
   $("comprehension-result-copy").textContent = passed
-    ? "All answers are correct."
+    ? `All ${Object.keys(COMPREHENSION_ANSWERS).length} answers are correct.`
     : "Some answers were not correct. Let's go through the tutorial again, then answer the questions again.";
   $("comprehension-start").hidden = !passed;
   $("comprehension-bonus").hidden = !passed;
   if(passed){
-    const bonus = new Intl.NumberFormat("en-GB", {style:"currency", currency:"GBP"})
+    // Amounts come from STUDY_CONFIG; the wording is in routes/task.html.
+    $("comprehension-bonus-amount").textContent = new Intl.NumberFormat("en-GB", {style:"currency", currency:"GBP"})
       .format(window.STUDY_CONFIG.payment.per_success_pence / 100);
-    $("comprehension-bonus").textContent = `You will earn a ${bonus} bonus for each task you solve successfully. Your base payment will not be affected.`;
+    $("comprehension-bonus").querySelectorAll("[data-max-runs]").forEach(node => {
+      node.textContent = String(window.STUDY_CONFIG.max_runs_per_trial);
+    });
   }
   $("comprehension-back-to-tutorial").hidden = passed;
   (passed ? $("comprehension-start") : $("comprehension-back-to-tutorial")).focus();
