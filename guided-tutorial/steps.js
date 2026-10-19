@@ -167,7 +167,7 @@ const STEPS = [
   // count: the first Run press here uses one; tag: "practice" or "example"; runLabel: the
   // Run button's example label (disabled). {maxRuns} and {bonus} come from STUDY_CONFIG.
   {id:"budget-intro", gadget:"core", map:"m2", rule:"final", shown:"start", target:"#run-budget", unlock:UNLOCK_RULES, budget:{used:0, tag:"practice"},
-    text:"In the tasks, each task gives you <em>{maxRuns} Runs</em>. This counter shows how many you have left. Here it is just for practice."},
+    text:"Each task gives you <em>{maxRuns} Runs</em>. This counter shows how many you have left. Here it is just for practice."},
   {id:"budget-cost", gadget:"core", map:"m2", rule:"final", shown:"start", target:"#run-budget", targetAlso:"#run", unlock:UNLOCK_RULES, budget:{used:0, count:true, tag:"practice"}, gate:"run-any",
     text:"Every press of <em>Run rule</em> uses one Run, even if you haven't changed your selections. Press it now and watch the counter.", wait:"Press Run rule to continue"},
   {id:"budget-replay", gadget:"core", map:"m2", rule:"final", shown:"end", target:".step-nav", targetAlso:"#run-budget", unlock:UNLOCK_RULES, budget:{used:1, tag:"practice"}, gate:"replay-step",

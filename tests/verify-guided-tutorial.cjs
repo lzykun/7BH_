@@ -149,7 +149,7 @@ const TEXT = {
   'back-to-movement': ['Click <em>Movement</em>. Your <em>west</em> selection is still there.', 'Click Movement to continue'],
   'both-kept': ['Each tab keeps its own selections, and both are carried into the next task. You can change them at any time. The open tab is the rule every robot follows when you press Run.'],
   // {maxRuns} and {bonus} are filled from STUDY_CONFIG (max_runs_per_trial, payment.per_success_pence).
-  'budget-intro': ['In the tasks, each task gives you <em>{maxRuns} Runs</em>. This counter shows how many you have left. Here it is just for practice.'],
+  'budget-intro': ['Each task gives you <em>{maxRuns} Runs</em>. This counter shows how many you have left. Here it is just for practice.'],
   'budget-cost': ["Every press of <em>Run rule</em> uses one Run, even if you haven't changed your selections. Press it now and watch the counter.", 'Press Run rule to continue'],
   'budget-replay': ['Replaying with the <em>← →</em> buttons is free. It never uses a Run. Try it.', 'Press ← or → to continue'],
   'budget-last': ['On your last Run, the counter turns red. If every robot gets home on <em>Run {maxRuns}</em>, the task still counts as solved.'],
