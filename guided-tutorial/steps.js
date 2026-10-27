@@ -162,17 +162,15 @@ const STEPS = [
   // Only when T1 opens on Movement, and only after the Type steps (otherwise there is no Type tab to come back from).
   {id:"back-to-movement", gadget:"core", needs:"alternative-feature", modes:["movement"], map:"m2", rule:"type-D", shown:"end", target:"#tab-move", bubbleDx:-200, unlock:UNLOCK_RULES, gate:"family-move",
     text:"Click <em>Movement</em>. Your <em>west</em> selection is still there.", wait:"Click Movement to continue"},
-  {id:"both-kept", gadget:"core", map:"m2", rule:"final", shown:"end", target:"[data-part=tabs]", targetAlso:".values", unlock:UNLOCK_RULES,
-    text:"Each tab keeps its own selections. <em>Both</em> carry over to your next task."},
-  // Next unlocks once the participant has opened the other tab and come back to the one T1 opens on.
-  {id:"try-tabs", gadget:"core", map:"m2", rule:"final", shown:"end", target:"[data-part=tabs]", targetAlso:".values", unlock:UNLOCK_RULES, gate:"tab-roundtrip",
+  // Next unlocks once the participant has opened the other tab and come back to the one T1 opens on;
+  // the bubble then shows doneText (also when the step is revisited).
+  {id:"switch-tabs", gadget:"core", map:"m2", rule:"final", shown:"end", target:".current", targetAlso:"[data-part=tabs]", unlock:UNLOCK_RULES, gate:"tab-roundtrip",
     text:{
-      type:"Try it: click <em>Movement</em>, then <em>Type</em>. Your selections are still there, and you can change them at any time.",
-      movement:"Try it: click <em>Type</em>, then <em>Movement</em>. Your selections are still there, and you can change them at any time.",
+      type:"Click <em>Movement</em> and watch the <em>Current rule</em>. Then click <em>Type</em> again.",
+      movement:"Click <em>Type</em> and watch the <em>Current rule</em>. Then click <em>Movement</em> again.",
     },
-    wait:{type:"Click Movement, then Type, to continue", movement:"Click Type, then Movement, to continue"}},
-  {id:"current-rule-run", gadget:"core", map:"m2", rule:"final", shown:"end", target:".current", targetAlso:"#run", unlock:UNLOCK_RULES,
-    text:"When you press <em>Run</em>, robots follow the <em>Current rule</em> shown here. Check it before each Run."},
+    wait:{type:"Click Movement, then Type, to continue", movement:"Click Type, then Movement, to continue"},
+    doneText:"Both tabs kept their selections, and both carry over to your next task. When you press <em>Run</em>, robots follow the <em>Current rule</em>."},
   // Runs-left counter, step by step. budget: the counter's demo state; used Runs, or "left";
   // count: the first Run press here uses one; tag: "practice" or "example"; runLabel: the
   // Run button's example label (disabled). {maxRuns} and {bonus} come from STUDY_CONFIG.

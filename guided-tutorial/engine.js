@@ -78,7 +78,8 @@ const bonusText = () => new Intl.NumberFormat("en-GB", {style:"currency", curren
   .format((window.STUDY_CONFIG?.payment?.per_success_pence || 0) / 100);
 const fill = text => text.replace(/\{maxRuns\}/g, String(maxRuns())).replace(/\{bonus\}/g, bonusText());
 const byMode = value => typeof value === "string" ? value : value?.[firstTaskOpens()] || "";
-const textOf = step => fill(byMode(step.text));
+// A gated step with doneText shows it once its gate is met.
+const textOf = step => fill(byMode(step.doneText && step.gate && done.has(step.id) ? step.doneText : step.text));
 
 function validate(enabled){
   const errors = [];
@@ -103,6 +104,9 @@ function validate(enabled){
     });
     if(typeof step.text !== "string" && !CONFIG.firstTaskModes.every(mode => typeof step.text?.[mode] === "string")){
       errors.push(`Step "${step.id}" needs text for every first-task mode.`);
+    }
+    if(step.doneText && (!step.gate || (typeof step.doneText !== "string" && !CONFIG.firstTaskModes.every(mode => typeof step.doneText?.[mode] === "string")))){
+      errors.push(`Step "${step.id}" has doneText without a gate or without text for every first-task mode.`);
     }
     if(step.wait && typeof step.wait !== "string" && !CONFIG.firstTaskModes.every(mode => typeof step.wait?.[mode] === "string")){
       errors.push(`Step "${step.id}" needs a wait note for every first-task mode.`);

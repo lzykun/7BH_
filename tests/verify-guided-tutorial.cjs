@@ -104,7 +104,7 @@ const head = ['welcome', 'fullscreen', 'map', 'badges', 'run-1', 'replay', 'run-
   'pick-movement', 'select-value', 'match-outline', 'current-rule', 'practice-run', 'good-job'];
 const alt = ['alt-intro', 'pick-type', 'select-type', 'type-run', 'type-good'];
 const budgetSteps = ['budget-intro', 'budget-cost', 'budget-replay', 'budget-last', 'budget-out', 'budget-bonus'];
-const tail = ['both-kept', 'try-tabs', 'current-rule-run', ...budgetSteps, 'end'];
+const tail = ['switch-tabs', ...budgetSteps, 'end'];
 const sequences = {
   '': [...head, ...alt, ...tail],
   '&guide_off=alternative-feature': [...head, ...alt, ...tail], // forced on in Type mode
@@ -147,15 +147,13 @@ const TEXT = {
   'type-run': ['Press <em>Run</em>. Only the open tab is used, so this Run uses your Type rule.', 'Get both robots to their bays to continue'],
   'type-good': [{ type: 'Both robots are home! Keep <em>Type D</em> selected for your first task.', movement: 'That works too! Both features can solve a map.' }],
   'back-to-movement': ['Click <em>Movement</em>. Your <em>west</em> selection is still there.', 'Click Movement to continue'],
-  'both-kept': ['Each tab keeps its own selections. <em>Both</em> carry over to your next task.'],
-  'try-tabs': [
+  'switch-tabs': [
     {
-      type: 'Try it: click <em>Movement</em>, then <em>Type</em>. Your selections are still there, and you can change them at any time.',
-      movement: 'Try it: click <em>Type</em>, then <em>Movement</em>. Your selections are still there, and you can change them at any time.',
+      type: 'Click <em>Movement</em> and watch the <em>Current rule</em>. Then click <em>Type</em> again.',
+      movement: 'Click <em>Type</em> and watch the <em>Current rule</em>. Then click <em>Movement</em> again.',
     },
     { type: 'Click Movement, then Type, to continue', movement: 'Click Type, then Movement, to continue' },
   ],
-  'current-rule-run': ['When you press <em>Run</em>, robots follow the <em>Current rule</em> shown here. Check it before each Run.'],
   // {maxRuns} and {bonus} are filled from STUDY_CONFIG (max_runs_per_trial, payment.per_success_pence).
   'budget-intro': ['Each task gives you <em>{maxRuns} Runs</em>. This counter shows how many you have left. Here it is just for practice.'],
   'budget-cost': ["Every time you press <em>Run</em>, you use one Run, even if you haven't changed your selections. Press it now and watch the counter.", 'Press Run to continue'],
@@ -166,6 +164,11 @@ const TEXT = {
   end: [{ type: 'Next come a few quick questions, then your first task. <em>Type D</em> will stay selected.', movement: "That's it! Next come a few quick questions, then your first task on the full warehouse map." }],
 };
 same(config.steps.map(step => step.id), Object.keys(TEXT), 'Every step has approved text, in order');
+// Text shown once a step's gate is met.
+const DONE_TEXT = {
+  'switch-tabs': 'Both tabs kept their selections, and both carry over to your next task. When you press <em>Run</em>, robots follow the <em>Current rule</em>.',
+};
+for (const item of config.steps) same(item.doneText ?? null, DONE_TEXT[item.id] ?? null, `Approved doneText: ${item.id}`);
 for (const step of config.steps) {
   const [text, wait] = TEXT[step.id];
   same(step.text, text, `Approved text: ${step.id}`);
@@ -199,15 +202,11 @@ same(budgetSteps.map(id => step(id).budget), [
   { left: 1, tag: 'example' }, { left: 0, tag: 'example', runLabel: 'Next task' }, { solved: true, tag: 'example' },
 ], 'Counter demo states: 10, 10 -> 9 on the Run, 9 while replaying, last Run, none left, solved');
 assert.equal(step('budget-cost').gate, 'run-any');
-// both-kept and try-tabs highlight the tabs and the values; try-tabs waits for the round trip.
-// current-rule-run highlights the Current rule box and Run. None of the three needs a gadget.
-assert.equal(step('both-kept').gate, undefined);
-assert.equal(step('try-tabs').gate, 'tab-roundtrip');
-for (const id of ['both-kept', 'try-tabs']) same([step(id).target, step(id).targetAlso], ['[data-part=tabs]', '.values'], `${id} highlights`);
-assert.equal(step('current-rule-run').gate, undefined);
-same([step('current-rule-run').target, step('current-rule-run').targetAlso], ['.current', '#run']);
-for (const id of ['both-kept', 'try-tabs', 'current-rule-run']) assert.equal(step(id).gadget, 'core');
-assert.ok(!step('open-tab'), 'open-tab is gone');
+// switch-tabs highlights the Current rule box and the tabs and waits for the round trip.
+assert.equal(step('switch-tabs').gate, 'tab-roundtrip');
+assert.equal(step('switch-tabs').gadget, 'core');
+same([step('switch-tabs').target, step('switch-tabs').targetAlso], ['.current', '[data-part=tabs]']);
+for (const id of ['both-kept', 'try-tabs', 'current-rule-run', 'open-tab']) assert.ok(!step(id), `${id} is gone`);
 // Participants see "Run", never "Run rule".
 for (const file of ['app.js', 'routes/task.html', 'guided-tutorial/steps.js', 'guided-tutorial/comprehension.js']) {
   assert.ok(!/Run rule/.test(read(file)), `${file}: no "Run rule"`);
@@ -318,7 +317,7 @@ same(page.window.GuidedComprehension.answers, serverAnswers, 'Comprehension answ
 for (const name of Object.keys(serverAnswers)) assert.ok(taskHtml.includes(`name="${name}"`), `task.html asks ${name}`);
 
 // 12. tab-roundtrip gate, both modes: Next unlocks only after the other tab and back.
-//     Driven through the engine with a stub task host, resuming at try-tabs.
+//     Driven through the engine with a stub task host, resuming at switch-tabs.
 function roundtrip(mode) {
   const location = new URL('http://localhost/routes/task.html?preview=1&schedule=jump-2&guide_first_task=' + mode);
   const elements = {};
@@ -348,11 +347,11 @@ function roundtrip(mode) {
   const cfg = context.window.GuidedTutorialConfig;
   const g = context.window.GuidedTutorial;
   const sequence = g.stepsFor(g.enabledGadgets()).map(item => item.id);
-  const before = sequence.slice(0, sequence.indexOf('try-tabs'));
+  const before = sequence.slice(0, sequence.indexOf('switch-tabs'));
   context.window.StudyData = {
     params: location.searchParams,
     record: (type, detail) => records.push({ type, detail }),
-    checkpoint: () => ({ protocol: cfg.protocol, phase: 'tutorial', step_id: 'try-tabs', done: before, round: 1 }),
+    checkpoint: () => ({ protocol: cfg.protocol, phase: 'tutorial', step_id: 'switch-tabs', done: before, round: 1 }),
     saveCheckpoint() {}, setStage() {}, setContext() {}, snapshot: () => ({ events: [] }),
   };
   let rule = { family: null, values: {} };
@@ -380,26 +379,34 @@ function roundtrip(mode) {
   const other = home === 'role' ? 'move_dir' : 'role';
   const next = element('guided-next');
   const wait = element('guided-wait');
-  assert.equal(rule.family, home, `${mode}: try-tabs opens on the tab T1 opens on`);
+  assert.equal(rule.family, home, `${mode}: switch-tabs opens on the tab T1 opens on`);
   assert.ok(next.disabled && !wait.hidden, `${mode}: Next is locked at first`);
-  assert.equal(wait.textContent, cfg.steps.find(item => item.id === 'try-tabs').wait[mode], `${mode}: wait note`);
+  const switchTabs = cfg.steps.find(item => item.id === 'switch-tabs');
+  const message = element('guided-message');
+  assert.equal(wait.textContent, switchTabs.wait[mode], `${mode}: wait note`);
+  assert.equal(message.innerHTML, switchTabs.text[mode], `${mode}: the step text before the round trip`);
   assert.equal(clickTab(home), false, `${mode}: the open tab does nothing`);
   assert.ok(clickTab(other), `${mode}: the other tab opens`);
   assert.ok(next.disabled, `${mode}: Next stays locked on the other tab`);
+  assert.equal(message.innerHTML, switchTabs.text[mode], `${mode}: still the step text on the other tab`);
   assert.equal(clickTab(other), false, `${mode}: the other tab again does nothing`);
   assert.ok(clickTab(home), `${mode}: back to the home tab`);
   assert.ok(!next.disabled && wait.hidden, `${mode}: Next unlocks after the round trip`);
+  assert.equal(message.innerHTML, switchTabs.doneText, `${mode}: the bubble switches to doneText`);
   assert.equal(clickTab(other), false, `${mode}: tabs lock once done`);
   same(records.filter(item => item.type === 'tutorial_step_completed').map(item => [item.detail.step_id, item.detail.gate]),
-    [['try-tabs', 'tab-roundtrip']], `${mode}: one tutorial_step_completed with gate tab-roundtrip`);
+    [['switch-tabs', 'tab-roundtrip']], `${mode}: one tutorial_step_completed with gate tab-roundtrip`);
   same(records.filter(item => item.type === 'tutorial_rule_family_changed').map(item => item.detail.to_family), [other, home],
     `${mode}: both tab changes are logged`);
   next.onclick();
-  assert.equal(element('guided-count').textContent, `${sequence.indexOf('current-rule-run') + 1} / ${sequence.length}`, `${mode}: Next goes to current-rule-run`);
+  assert.equal(element('guided-count').textContent, `${sequence.indexOf('budget-intro') + 1} / ${sequence.length}`, `${mode}: Next goes to budget-intro`);
+  element('guided-back').onclick();
+  assert.equal(message.innerHTML, switchTabs.doneText, `${mode}: Back to switch-tabs shows doneText at once`);
+  assert.ok(!next.disabled, `${mode}: Next stays unlocked on Back`);
   return sequence.length;
 }
 const roundtripCounts = config.firstTaskModes.map(roundtrip);
-same(roundtripCounts, [32, 33], 'Step counts: 32 when T1 opens on Type, 33 on Movement');
+same(roundtripCounts, [30, 31], 'Step counts: 30 when T1 opens on Type, 31 on Movement');
 
 console.log(`Verified guided tutorial: ${config.steps.length} steps with approved text, both first-task modes, ` +
   `gadget switches, the tab round trip (${roundtripCounts.join(' and ')} steps), dimLocked on and off, practice = T1 solution sets in both families, ${selectors.length} selectors, ` +
