@@ -94,6 +94,7 @@ const TARGETS = {
   "#run":"#run",
   "#run-budget":"#run-budget",
   ".step-nav":".step-nav",
+  ".values":".simple-family-sections",
 };
 
 const GADGETS = {
@@ -118,11 +119,11 @@ const STEPS = [
   {id:"badges", gadget:"features", map:"m1", rule:"none", shown:"start", target:"robot:1", unlock:["board"],
     text:"The <em>arrow</em> shows which way a robot will move next. The <em>letter</em> is its Type. You will use these later."},
   {id:"run-1", gadget:"core", map:"m1", rule:"none", shown:"start", target:"#board", area:[[3, 2], [5, 7]], targetAlso:".runbar", unlock:["board", "runbar"], gate:"run-any",
-    text:"Robots always take the shortest route to their bay. Press <em>Run rule</em> to watch them move.", wait:"Press Run rule to continue"},
+    text:"Robots always take the shortest route to their bay. Press <em>Run</em> to watch them move.", wait:"Press Run to continue"},
   {id:"replay", gadget:"replay", map:"m1", rule:"none", shown:"end", target:"#board", area:[[3, 2], [5, 7]], targetAlso:".runbar", unlock:["board", "runbar"],
     text:"Use the <em>← →</em> buttons to replay a run one step at a time."},
   {id:"run-2", gadget:"core", map:"m2", rule:"none", shown:"start", target:"#board", area:[[2, 2], [6, 6]], targetAlso:".runbar", unlock:["board", "runbar", "status"], gate:"run-any",
-    text:"Sometimes the layout gets more complicated. Press <em>Run rule</em> and see what happens on this map.", wait:"Press Run rule to continue"},
+    text:"Sometimes the layout gets more complicated. Press <em>Run</em> and see what happens on this map.", wait:"Press Run to continue"},
   {id:"clash", gadget:"core", map:"m2", rule:"none", shown:"end", target:"#status", unlock:["board", "runbar", "status"],
     text:"The two robots tried to enter the <em>same square</em> at the same time and collided. Robots in a collision stop; <em>other robots keep moving</em>."},
   {id:"task", gadget:"core", map:"m2", rule:"none", shown:"end", target:null, unlock:["board", "runbar", "status", "goals"],
@@ -141,7 +142,7 @@ const STEPS = [
   {id:"current-rule", gadget:"core", map:"m2", rule:"move-W", shown:"start", target:".current", unlock:UNLOCK_RULES,
     text:"Your current rule is written out here in words."},
   {id:"practice-run", gadget:"core", map:"m2", rule:"move-W", shown:"start", target:"#board", area:[[2, 2], [6, 6]], targetAlso:".runbar", unlock:UNLOCK_RULES, gate:"run-success",
-    text:"Press <em>Run rule</em> to test your rule.", wait:"Get both robots to their bays to continue"},
+    text:"Press <em>Run</em> to test your rule.", wait:"Get both robots to their bays to continue"},
   {id:"good-job", gadget:"core", celebrate:true, map:"m2", rule:"move-W", shown:"end", target:"#board", area:[[2, 2], [6, 6]], unlock:UNLOCK_RULES,
     text:"<span class='key'>Good job!</span> Robot 1 waited, robot 2 passed, and both reached their bays in the same Run."},
   // Alternative feature: the same map solved with Type.
@@ -152,7 +153,7 @@ const STEPS = [
   {id:"select-type", gadget:"alternative-feature", map:"m2", rule:"type-tab", shown:"end", target:"value:role:loader", bubbleDx:-200, unlock:UNLOCK_RULES, gate:"type-value",
     text:"Robot 1 is <em>Type D</em>. Select <em>D</em> so it waits.", wait:"Select D to continue"},
   {id:"type-run", gadget:"alternative-feature", map:"m2", rule:"type-D", shown:"start", target:"#board", area:[[2, 2], [6, 6]], targetAlso:".runbar", unlock:UNLOCK_RULES, gate:"run-type-success",
-    text:"Press <em>Run rule</em>. Only the open tab is used, so this Run uses your Type rule.", wait:"Get both robots to their bays to continue"},
+    text:"Press <em>Run</em>. Only the open tab is used, so this Run uses your Type rule.", wait:"Get both robots to their bays to continue"},
   {id:"type-good", gadget:"alternative-feature", celebrate:true, map:"m2", rule:"type-D", shown:"end", target:"#board", area:[[2, 2], [6, 6]], unlock:UNLOCK_RULES,
     text:{
       type:"Both robots are home! Keep <em>Type D</em> selected for your first task.",
@@ -161,15 +162,22 @@ const STEPS = [
   // Only when T1 opens on Movement, and only after the Type steps (otherwise there is no Type tab to come back from).
   {id:"back-to-movement", gadget:"core", needs:"alternative-feature", modes:["movement"], map:"m2", rule:"type-D", shown:"end", target:"#tab-move", bubbleDx:-200, unlock:UNLOCK_RULES, gate:"family-move",
     text:"Click <em>Movement</em>. Your <em>west</em> selection is still there.", wait:"Click Movement to continue"},
-  {id:"both-kept", gadget:"core", map:"m2", rule:"final", shown:"end", target:".rules", unlock:UNLOCK_RULES,
-    text:"Each tab keeps its own selections, and both are carried into the next task. You can change them at any time. The open tab is the rule every robot follows when you press Run."},
+  // Next unlocks once the participant has opened the other tab and come back to the one T1 opens on.
+  {id:"both-kept", gadget:"core", map:"m2", rule:"final", shown:"end", target:"[data-part=tabs]", targetAlso:".values", unlock:UNLOCK_RULES, gate:"tab-roundtrip",
+    text:{
+      type:"Each tab keeps its own selections. <em>Both</em> carry over to your next task, and you can change them at any time. Try it: click <em>Movement</em>, then go back to <em>Type</em>.",
+      movement:"Each tab keeps its own selections. <em>Both</em> carry over to your next task, and you can change them at any time. Try it: click <em>Type</em>, then go back to <em>Movement</em>.",
+    },
+    wait:{type:"Click Movement, then Type, to continue", movement:"Click Type, then Movement, to continue"}},
+  {id:"open-tab", gadget:"core", map:"m2", rule:"final", shown:"end", target:"[data-part=tabs]", targetAlso:"#run", unlock:UNLOCK_RULES,
+    text:"When you press <em>Run</em>, robots follow only the tab that is <em>open</em>."},
   // Runs-left counter, step by step. budget: the counter's demo state; used Runs, or "left";
   // count: the first Run press here uses one; tag: "practice" or "example"; runLabel: the
   // Run button's example label (disabled). {maxRuns} and {bonus} come from STUDY_CONFIG.
   {id:"budget-intro", gadget:"core", map:"m2", rule:"final", shown:"start", target:"#run-budget", unlock:UNLOCK_RULES, budget:{used:0, tag:"practice"},
     text:"Each task gives you <em>{maxRuns} Runs</em>. This counter shows how many you have left. Here it is just for practice."},
   {id:"budget-cost", gadget:"core", map:"m2", rule:"final", shown:"start", target:"#run-budget", targetAlso:"#run", unlock:UNLOCK_RULES, budget:{used:0, count:true, tag:"practice"}, gate:"run-any",
-    text:"Every press of <em>Run rule</em> uses one Run, even if you haven't changed your selections. Press it now and watch the counter.", wait:"Press Run rule to continue"},
+    text:"Every time you press <em>Run</em>, you use one Run, even if you haven't changed your selections. Press it now and watch the counter.", wait:"Press Run to continue"},
   {id:"budget-replay", gadget:"core", map:"m2", rule:"final", shown:"end", target:".step-nav", targetAlso:"#run-budget", unlock:UNLOCK_RULES, budget:{used:1, tag:"practice"}, gate:"replay-step",
     text:"Replaying with the <em>← →</em> buttons is free. It never uses a Run. Try it.", wait:"Press ← or → to continue"},
   {id:"budget-last", gadget:"core", map:"m2", rule:"final", shown:"start", target:"#run-budget", unlock:UNLOCK_RULES, budget:{left:1, tag:"example"},
@@ -210,7 +218,7 @@ window.GuidedTutorialConfig = Object.freeze({
   initialActiveFamily:carryFor(FIRST_TASK_OPENS).family,
   // Grey out locked parts. Off by default; the preview can set &guide_dim=1 or 0.
   dimLocked:false,
-  practiceRetryText:"Try again: select west on the Movement tab, then press Run rule.",
+  practiceRetryText:"Try again: select west on the Movement tab, then press Run.",
   labels:{back:"← Back", next:"Next →", finish:"Finish"},
   // Tag under the demo counter.
   budgetTags:{practice:"Practice", example:"Example"},

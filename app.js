@@ -2517,7 +2517,7 @@ function updateContinueButton(){
   if(runButton){
     const state = shiftStates[scn.id];
     const resolved = taskMode === "task" && state?.outcome;
-    runButton.textContent = resolved ? (curIndex === TASKS.length-1 ? "View results" : "Next task") : "Run rule";
+    runButton.textContent = resolved ? (curIndex === TASKS.length-1 ? "View results" : "Next task") : "Run";
     runButton.disabled = taskMode === "task" && timer !== null;
     runButton.classList.toggle("primary", !lastResult?.ok);
     runButton.classList.toggle("secondary-run", !!lastResult?.ok);
@@ -2836,7 +2836,7 @@ function play(trigger="manual"){
   stopTaskAnimation("new-run");
   const runButton = $("run");
   if(runButton){
-    runButton.textContent = "Run rule";
+    runButton.textContent = "Run";
     runButton.classList.add("primary");
     runButton.classList.remove("secondary-run", "is-guided");
   }
@@ -3098,7 +3098,7 @@ function playTutorialRun(trigger){
   stopTaskAnimation("new-run");
   const runButton = $("run");
   if(runButton){
-    runButton.textContent = "Run rule";
+    runButton.textContent = "Run";
     runButton.classList.add("primary");
     runButton.classList.remove("secondary-run", "is-guided");
   }
@@ -3197,7 +3197,7 @@ window.TaskHost = Object.freeze({
   resetRunButton(){
     const runButton = $("run");
     if(!runButton) return;
-    runButton.textContent = "Run rule";
+    runButton.textContent = "Run";
     runButton.classList.add("primary");
     runButton.classList.remove("secondary-run");
   },

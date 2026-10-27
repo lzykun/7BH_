@@ -11,7 +11,7 @@ const PROTOCOL = CONFIG?.protocol || null;
 const CHECKPOINT = "guided_tutorial";
 const BUBBLE_WIDTH = 380;
 const SPOT_PAD = 6;
-const GATES = new Set(["run-any", "run-success", "run-type-success", "family-move", "family-type", "value", "type-value", "replay-step"]);
+const GATES = new Set(["run-any", "run-success", "run-type-success", "family-move", "family-type", "value", "type-value", "replay-step", "tab-roundtrip"]);
 const RULE_STATES = new Set(["none", "move-tab", "move-W", "type-tab", "type-D", "move-both", "final"]);
 
 const $ = id => document.getElementById(id);
@@ -31,6 +31,8 @@ let lastPracticeRule = null;
 let lastAlternativeRule = null;
 let active = false;
 let placeTimer = null;
+// tab-roundtrip: the participant has opened the other tab on this visit to the step.
+let leftHomeTab = false;
 
 function record(type, detail={}){
   return data()?.record(type, {tutorial_protocol:PROTOCOL, ...detail});
@@ -75,7 +77,8 @@ const maxRuns = () => window.STUDY_CONFIG?.max_runs_per_trial;
 const bonusText = () => new Intl.NumberFormat("en-GB", {style:"currency", currency:"GBP"})
   .format((window.STUDY_CONFIG?.payment?.per_success_pence || 0) / 100);
 const fill = text => text.replace(/\{maxRuns\}/g, String(maxRuns())).replace(/\{bonus\}/g, bonusText());
-const textOf = step => fill(typeof step.text === "string" ? step.text : step.text?.[firstTaskOpens()] || "");
+const byMode = value => typeof value === "string" ? value : value?.[firstTaskOpens()] || "";
+const textOf = step => fill(byMode(step.text));
 
 function validate(enabled){
   const errors = [];
@@ -100,6 +103,9 @@ function validate(enabled){
     });
     if(typeof step.text !== "string" && !CONFIG.firstTaskModes.every(mode => typeof step.text?.[mode] === "string")){
       errors.push(`Step "${step.id}" needs text for every first-task mode.`);
+    }
+    if(step.wait && typeof step.wait !== "string" && !CONFIG.firstTaskModes.every(mode => typeof step.wait?.[mode] === "string")){
+      errors.push(`Step "${step.id}" needs a wait note for every first-task mode.`);
     }
     if(!CONFIG.maps[step.map]) errors.push(`Step "${step.id}" uses unknown map "${step.map}".`);
     if(!RULE_STATES.has(step.rule)) errors.push(`Step "${step.id}" has unknown rule state "${step.rule}".`);
@@ -174,6 +180,13 @@ function gateChoice(step){
     case "family-type": return {tab:alternative.family};
     case "value": return {family:practice.family, value:practice.value};
     case "type-value": return {family:alternative.family, value:alternative.value};
+    // Out to the other tab, then back to the one T1 opens on.
+    case "tab-roundtrip": {
+      const home = settings().initialActiveFamily;
+      const other = home === practice.family ? alternative.family : practice.family;
+      // Once done, the tabs stay locked on the home tab.
+      return {tab:leftHomeTab || done.has(step.id) ? home : other, home};
+    }
     default: return null;
   }
 }
@@ -430,7 +443,7 @@ function render(){
   const ok = gateMet();
   const wait = $("guided-wait");
   wait.hidden = ok || !step.wait;
-  wait.textContent = step.wait ? fill(step.wait) : "";
+  wait.textContent = step.wait ? fill(byMode(step.wait)) : "";
   const next = $("guided-next");
   next.disabled = !ok;
   next.classList.toggle("pulse", !!step.gate && ok);
@@ -458,8 +471,9 @@ function go(index, direction){
   const previousMs = stepViewedAt ? now - stepViewedAt : null;
   pos = index;
   const step = seq[pos];
+  leftHomeTab = false;
   setupStep();
-  // Going back shows "Run rule" even where the earlier Run succeeded (decision B3).
+  // Going back shows "Run" even where the earlier Run succeeded (decision B3).
   if(direction === "back") host.resetRunButton();
   render();
   requestAnimationFrame(placeGuide);
@@ -531,7 +545,10 @@ function onRuleEvent(type, detail){
       step_id:step.id, round,
     });
     const want = gateChoice(step);
-    if(want?.tab && detail.to_family === want.tab) complete(step, step.gate);
+    if(step.gate === "tab-roundtrip"){
+      if(detail.to_family !== want.home) leftHomeTab = true;
+      else if(leftHomeTab) complete(step, step.gate);
+    }else if(want?.tab && detail.to_family === want.tab) complete(step, step.gate);
   }else if(type === "rule_value_added" || type === "rule_value_removed"){
     record("tutorial_rule_value_toggled", {
       family:detail.family, value:detail.value, selected:type === "rule_value_added",

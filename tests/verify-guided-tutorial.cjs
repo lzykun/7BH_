@@ -104,7 +104,7 @@ const head = ['welcome', 'fullscreen', 'map', 'badges', 'run-1', 'replay', 'run-
   'pick-movement', 'select-value', 'match-outline', 'current-rule', 'practice-run', 'good-job'];
 const alt = ['alt-intro', 'pick-type', 'select-type', 'type-run', 'type-good'];
 const budgetSteps = ['budget-intro', 'budget-cost', 'budget-replay', 'budget-last', 'budget-out', 'budget-bonus'];
-const tail = ['both-kept', ...budgetSteps, 'end'];
+const tail = ['both-kept', 'open-tab', ...budgetSteps, 'end'];
 const sequences = {
   '': [...head, ...alt, ...tail],
   '&guide_off=alternative-feature': [...head, ...alt, ...tail], // forced on in Type mode
@@ -128,9 +128,9 @@ const TEXT = {
   fullscreen: ['For the best view, please make your browser window full screen now.'],
   map: ['The robots are heading back to their charging bays. Each robot and its bay share the <em>same number and colour</em>.'],
   badges: ['The <em>arrow</em> shows which way a robot will move next. The <em>letter</em> is its Type. You will use these later.'],
-  'run-1': ['Robots always take the shortest route to their bay. Press <em>Run rule</em> to watch them move.', 'Press Run rule to continue'],
+  'run-1': ['Robots always take the shortest route to their bay. Press <em>Run</em> to watch them move.', 'Press Run to continue'],
   replay: ['Use the <em>← →</em> buttons to replay a run one step at a time.'],
-  'run-2': ['Sometimes the layout gets more complicated. Press <em>Run rule</em> and see what happens on this map.', 'Press Run rule to continue'],
+  'run-2': ['Sometimes the layout gets more complicated. Press <em>Run</em> and see what happens on this map.', 'Press Run to continue'],
   clash: ['The two robots tried to enter the <em>same square</em> at the same time and collided. Robots in a collision stop; <em>other robots keep moving</em>.'],
   task: ["<span class='key'>Your task is to coordinate the robots and prevent them from colliding.</span>"],
   rules: ['You coordinate them with a <em>waiting rule</em>. When two robots meet, your rule decides which one waits.'],
@@ -139,18 +139,25 @@ const TEXT = {
   'select-value': ['Robot 1 is moving <em>west ←</em>. Select <em>west</em> so that robot waits when the two meet.', 'Select west to continue'],
   'match-outline': ['Robots that match your rule get a <em>green outline</em>. It shows who would wait. It does not mean the rule works yet.'],
   'current-rule': ['Your current rule is written out here in words.'],
-  'practice-run': ['Press <em>Run rule</em> to test your rule.', 'Get both robots to their bays to continue'],
+  'practice-run': ['Press <em>Run</em> to test your rule.', 'Get both robots to their bays to continue'],
   'good-job': ["<span class='key'>Good job!</span> Robot 1 waited, robot 2 passed, and both reached their bays in the same Run."],
   'alt-intro': ["You can always try the other feature. Let's solve the same map with <em>Type</em>."],
   'pick-type': ["Click <em>Type</em>. Your Movement selection is kept separately and won't change.", 'Click Type to continue'],
   'select-type': ['Robot 1 is <em>Type D</em>. Select <em>D</em> so it waits.', 'Select D to continue'],
-  'type-run': ['Press <em>Run rule</em>. Only the open tab is used, so this Run uses your Type rule.', 'Get both robots to their bays to continue'],
+  'type-run': ['Press <em>Run</em>. Only the open tab is used, so this Run uses your Type rule.', 'Get both robots to their bays to continue'],
   'type-good': [{ type: 'Both robots are home! Keep <em>Type D</em> selected for your first task.', movement: 'That works too! Both features can solve a map.' }],
   'back-to-movement': ['Click <em>Movement</em>. Your <em>west</em> selection is still there.', 'Click Movement to continue'],
-  'both-kept': ['Each tab keeps its own selections, and both are carried into the next task. You can change them at any time. The open tab is the rule every robot follows when you press Run.'],
+  'both-kept': [
+    {
+      type: 'Each tab keeps its own selections. <em>Both</em> carry over to your next task, and you can change them at any time. Try it: click <em>Movement</em>, then go back to <em>Type</em>.',
+      movement: 'Each tab keeps its own selections. <em>Both</em> carry over to your next task, and you can change them at any time. Try it: click <em>Type</em>, then go back to <em>Movement</em>.',
+    },
+    { type: 'Click Movement, then Type, to continue', movement: 'Click Type, then Movement, to continue' },
+  ],
+  'open-tab': ['When you press <em>Run</em>, robots follow only the tab that is <em>open</em>.'],
   // {maxRuns} and {bonus} are filled from STUDY_CONFIG (max_runs_per_trial, payment.per_success_pence).
   'budget-intro': ['Each task gives you <em>{maxRuns} Runs</em>. This counter shows how many you have left. Here it is just for practice.'],
-  'budget-cost': ["Every press of <em>Run rule</em> uses one Run, even if you haven't changed your selections. Press it now and watch the counter.", 'Press Run rule to continue'],
+  'budget-cost': ["Every time you press <em>Run</em>, you use one Run, even if you haven't changed your selections. Press it now and watch the counter.", 'Press Run to continue'],
   'budget-replay': ['Replaying with the <em>← →</em> buttons is free. It never uses a Run. Try it.', 'Press ← or → to continue'],
   'budget-last': ['On your last Run, the counter turns red. If every robot gets home on <em>Run {maxRuns}</em>, the task still counts as solved.'],
   'budget-out': ['If some robots are still not home after Run {maxRuns}, you move on to the next task. Your <em>last selections stay selected</em>.'],
@@ -161,7 +168,7 @@ same(config.steps.map(step => step.id), Object.keys(TEXT), 'Every step has appro
 for (const step of config.steps) {
   const [text, wait] = TEXT[step.id];
   same(step.text, text, `Approved text: ${step.id}`);
-  assert.equal(step.wait ?? null, wait ?? null, `Approved wait note: ${step.id}`);
+  same(step.wait ?? null, wait ?? null, `Approved wait note: ${step.id}`);
   if (step.gate) assert.ok(step.wait, `Gated step ${step.id} has a wait note`);
 }
 // Amounts are never literals: no "£", no Run count in the text; {maxRuns} and {bonus} only.
@@ -171,7 +178,7 @@ for (const item of config.steps) {
   for (const name of text.match(/\{(\w+)\}/g) || []) assert.ok(['{maxRuns}', '{bonus}'].includes(name), `${item.id}: known placeholder ${name}`);
 }
 same(config.budgetTags, { practice: 'Practice', example: 'Example' }, 'Approved counter tags');
-assert.equal(config.practiceRetryText, 'Try again: select west on the Movement tab, then press Run rule.');
+assert.equal(config.practiceRetryText, 'Try again: select west on the Movement tab, then press Run.');
 
 // 5. Step structure.
 const step = id => config.steps.find(item => item.id === id);
@@ -191,6 +198,15 @@ same(budgetSteps.map(id => step(id).budget), [
   { left: 1, tag: 'example' }, { left: 0, tag: 'example', runLabel: 'Next task' }, { solved: true, tag: 'example' },
 ], 'Counter demo states: 10, 10 -> 9 on the Run, 9 while replaying, last Run, none left, solved');
 assert.equal(step('budget-cost').gate, 'run-any');
+// both-kept: open the other tab and come back; highlights the tabs and the values. open-tab: tabs and Run, no gate.
+assert.equal(step('both-kept').gate, 'tab-roundtrip');
+same([step('both-kept').target, step('both-kept').targetAlso], ['[data-part=tabs]', '.values']);
+assert.equal(step('open-tab').gate, undefined);
+same([step('open-tab').target, step('open-tab').targetAlso, step('open-tab').gadget], ['[data-part=tabs]', '#run', 'core']);
+// Participants see "Run", never "Run rule".
+for (const file of ['app.js', 'routes/task.html', 'guided-tutorial/steps.js', 'guided-tutorial/comprehension.js']) {
+  assert.ok(!/Run rule/.test(read(file)), `${file}: no "Run rule"`);
+}
 assert.equal(step('budget-replay').gate, 'replay-step');
 
 // 6. Gadget switches: each can be turned off unless a step needs it; core cannot.
@@ -277,6 +293,89 @@ const serverAnswers = Object.fromEntries([...server.matchAll(/'(check\d)'=>'([a-
 same(page.window.GuidedComprehension.answers, serverAnswers, 'Comprehension answers match server-common.php');
 for (const name of Object.keys(serverAnswers)) assert.ok(taskHtml.includes(`name="${name}"`), `task.html asks ${name}`);
 
+// 12. tab-roundtrip gate, both modes: Next unlocks only after the other tab and back.
+//     Driven through the engine with a stub task host, resuming at both-kept.
+function roundtrip(mode) {
+  const location = new URL('http://localhost/routes/task.html?preview=1&schedule=jump-2&guide_first_task=' + mode);
+  const elements = {};
+  const element = id => (elements[id] ||= {
+    id, hidden: false, disabled: false, textContent: '', innerHTML: '', style: {}, offsetHeight: 100,
+    classList: { toggle() {}, add() {}, contains: () => false }, setAttribute() {}, focus() {},
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }),
+  });
+  const wrap = { offsetWidth: 1000, offsetHeight: 800, getBoundingClientRect: () => ({ left: 0, top: 0, width: 1000, height: 800 }) };
+  const clicks = [];
+  const records = [];
+  const document = {
+    body: { dataset: { stage: 'task' }, classList: { add() {}, toggle() {} } },
+    head: { appendChild() {} }, readyState: 'loading', addEventListener() {},
+    getElementById: element, createElement: () => element('new-' + Math.random()),
+    querySelector: selector => (selector === '.wrap' ? wrap : element(selector)),
+  };
+  const context = vm.createContext({
+    URL, URLSearchParams, structuredClone, location, console, document, Intl,
+    requestAnimationFrame() {}, setTimeout() {}, clearTimeout() {},
+    history: { replaceState() {} },
+    window: { location, innerWidth: 1000, innerHeight: 800, addEventListener: (type, fn) => type === 'click' && clicks.push(fn), removeEventListener() {} },
+  });
+  for (const name of ['study-config.js', 'guided-tutorial/steps.js', 'guided-tutorial/comprehension.js', 'guided-tutorial/engine.js']) {
+    vm.runInContext(read(name), context, { filename: name });
+  }
+  const cfg = context.window.GuidedTutorialConfig;
+  const g = context.window.GuidedTutorial;
+  const sequence = g.stepsFor(g.enabledGadgets()).map(item => item.id);
+  const before = sequence.slice(0, sequence.indexOf('both-kept'));
+  context.window.StudyData = {
+    params: location.searchParams,
+    record: (type, detail) => records.push({ type, detail }),
+    checkpoint: () => ({ protocol: cfg.protocol, phase: 'tutorial', step_id: 'both-kept', done: before, round: 1 }),
+    saveCheckpoint() {}, setStage() {}, setContext() {}, snapshot: () => ({ events: [] }),
+  };
+  let rule = { family: null, values: {} };
+  let ruleChanged = () => {};
+  const host = {
+    sceneId: () => cfg.maps.m2.id, showScene() {}, setRuleState: state => { rule = structuredClone(state); },
+    getRuleState: () => structuredClone(rule), resetRun() {}, showRunEnd() {}, showRunBudget() {}, resetRunButton() {},
+    onRuleChange: fn => { ruleChanged = fn; }, onRunComplete() {}, onRunStart() {}, onFrameStep() {}, confetti() {},
+    currentFrame: () => ({ pos: {} }), cellSize: 30,
+  };
+  assert.ok(g.start({ host, phase: 'tutorial' }), `${mode}: engine starts`);
+  // A click on a tab: blocked by the choice lock, or it switches the open tab as app.js does.
+  const clickTab = family => {
+    const control = { classList: { contains: name => name === 'rule-family-tab' }, dataset: { family } };
+    let blocked = false;
+    const event = { target: { closest: () => control }, preventDefault() { blocked = true; }, stopImmediatePropagation() {} };
+    clicks.forEach(fn => fn(event));
+    if (blocked || rule.family === family) return false;
+    const from = rule.family;
+    rule.family = family;
+    ruleChanged('rule_family_changed', { from_family: from, to_family: family, trigger: 'click' });
+    return true;
+  };
+  const home = cfg.carryFor(mode).family;
+  const other = home === 'role' ? 'move_dir' : 'role';
+  const next = element('guided-next');
+  const wait = element('guided-wait');
+  assert.equal(rule.family, home, `${mode}: both-kept opens on the tab T1 opens on`);
+  assert.ok(next.disabled && !wait.hidden, `${mode}: Next is locked at first`);
+  assert.equal(wait.textContent, cfg.steps.find(item => item.id === 'both-kept').wait[mode], `${mode}: wait note`);
+  assert.equal(clickTab(home), false, `${mode}: the open tab does nothing`);
+  assert.ok(clickTab(other), `${mode}: the other tab opens`);
+  assert.ok(next.disabled, `${mode}: Next stays locked on the other tab`);
+  assert.equal(clickTab(other), false, `${mode}: the other tab again does nothing`);
+  assert.ok(clickTab(home), `${mode}: back to the home tab`);
+  assert.ok(!next.disabled && wait.hidden, `${mode}: Next unlocks after the round trip`);
+  assert.equal(clickTab(other), false, `${mode}: tabs lock once done`);
+  same(records.filter(item => item.type === 'tutorial_step_completed').map(item => [item.detail.step_id, item.detail.gate]),
+    [['both-kept', 'tab-roundtrip']], `${mode}: one tutorial_step_completed with gate tab-roundtrip`);
+  same(records.filter(item => item.type === 'tutorial_rule_family_changed').map(item => item.detail.to_family), [other, home],
+    `${mode}: both tab changes are logged`);
+  next.onclick();
+  assert.equal(element('guided-count').textContent, `${sequence.indexOf('open-tab') + 1} / ${sequence.length}`, `${mode}: Next goes to open-tab`);
+  return sequence.length;
+}
+const roundtripCounts = config.firstTaskModes.map(roundtrip);
+
 console.log(`Verified guided tutorial: ${config.steps.length} steps with approved text, both first-task modes, ` +
-  `gadget switches, dimLocked on and off, practice = T1 solution sets in both families, ${selectors.length} selectors, ` +
+  `gadget switches, the tab round trip (${roundtripCounts.join(' and ')} steps), dimLocked on and off, practice = T1 solution sets in both families, ${selectors.length} selectors, ` +
   `the Runs-left counter, window confetti and ${Object.keys(serverAnswers).length} comprehension answers.`);

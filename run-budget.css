@@ -1,4 +1,4 @@
-/* Runs-left counter beside "Run rule" (routes/task.html #run-budget).
+/* Runs-left counter beside "Run" (routes/task.html #run-budget).
    app.js updateContinueButton sets data-state (ready, low, last, empty, solved),
    the number, the label and the used pips; data-limit supplies the "/10". */
 .run-budget{
