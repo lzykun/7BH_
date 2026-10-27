@@ -323,7 +323,7 @@ function roundtrip(mode) {
   const elements = {};
   const element = id => (elements[id] ||= {
     id, hidden: false, disabled: false, textContent: '', innerHTML: '', style: {}, offsetHeight: 100,
-    classList: { toggle() {}, add() {}, contains: () => false }, setAttribute() {}, focus() {},
+    classList: { toggle() {}, add() {}, contains: () => false }, setAttribute() {}, focus() {}, querySelectorAll: () => [],
     getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }),
   });
   const wrap = { offsetWidth: 1000, offsetHeight: 800, getBoundingClientRect: () => ({ left: 0, top: 0, width: 1000, height: 800 }) };
@@ -337,7 +337,7 @@ function roundtrip(mode) {
   };
   const context = vm.createContext({
     URL, URLSearchParams, structuredClone, location, console, document, Intl,
-    requestAnimationFrame() {}, setTimeout() {}, clearTimeout() {},
+    requestAnimationFrame() {}, setTimeout() {}, clearTimeout() {}, getComputedStyle: () => ({ position: 'static' }),
     history: { replaceState() {} },
     window: { location, innerWidth: 1000, innerHeight: 800, addEventListener: (type, fn) => type === 'click' && clicks.push(fn), removeEventListener() {} },
   });
@@ -406,6 +406,15 @@ function roundtrip(mode) {
   return sequence.length;
 }
 const roundtripCounts = config.firstTaskModes.map(roundtrip);
+
+// 13. Highlights that overlap or are within 14px merge into one ring; far-apart ones stay separate.
+const box = (x, y, w, h) => ({ x, y, w, h });
+same(guide.mergeRects([box(0, 0, 100, 40), box(90, 0, 100, 40)]), [box(0, 0, 190, 40)], 'Overlapping rings merge');
+same(guide.mergeRects([box(0, 0, 100, 40), box(113, 0, 50, 40)]), [box(0, 0, 163, 40)], 'Rings 13px apart merge');
+same(guide.mergeRects([box(0, 0, 100, 40), box(114, 0, 50, 40)]), [box(0, 0, 100, 40), box(114, 0, 50, 40)], 'Rings 14px apart stay separate');
+same(guide.mergeRects([box(0, 0, 50, 50), box(300, 0, 50, 50), box(55, 0, 240, 50)]), [box(0, 0, 350, 50)], 'Merging repeats until no pair is close');
+same(guide.mergeRects([box(0, 0, 50, 50), box(0, 400, 50, 50)]), [box(0, 0, 50, 50), box(0, 400, 50, 50)], 'Far-apart rings stay separate');
+assert.match(read('guided-tutorial/engine.js'), /return mergeRects\(rects\);/, 'targetRects returns merged rings');
 same(roundtripCounts, [30, 31], 'Step counts: 30 when T1 opens on Type, 31 on Movement');
 
 console.log(`Verified guided tutorial: ${config.steps.length} steps with approved text, both first-task modes, ` +

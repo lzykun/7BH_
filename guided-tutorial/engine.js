@@ -11,6 +11,8 @@ const PROTOCOL = CONFIG?.protocol || null;
 const CHECKPOINT = "guided_tutorial";
 const BUBBLE_WIDTH = 380;
 const SPOT_PAD = 6;
+// Highlights closer than this (after padding) are drawn as one ring.
+const SPOT_MERGE_GAP = 14;
 const GATES = new Set(["run-any", "run-success", "run-type-success", "family-move", "family-type", "value", "type-value", "replay-step", "tab-roundtrip"]);
 const RULE_STATES = new Set(["none", "move-tab", "move-W", "type-tab", "type-D", "move-both", "final"]);
 
@@ -341,6 +343,43 @@ function relative(rect, geometry){
 }
 
 const padded = (rect, pad=SPOT_PAD) => ({x:rect.x - pad, y:rect.y - pad, w:rect.w + pad * 2, h:rect.h + pad * 2});
+const union = (a, b) => {
+  const x = Math.min(a.x, b.x);
+  const y = Math.min(a.y, b.y);
+  return {x, y, w:Math.max(a.x + a.w, b.x + b.w) - x, h:Math.max(a.y + a.h, b.y + b.h) - y};
+};
+const gapBetween = (a, b) => Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w), b.y - (a.y + a.h), a.y - (b.y + b.h));
+
+// An element's box plus its visible absolutely positioned parts, which can sit
+// outside it (e.g. the Runs counter's Practice/Example tag below the counter).
+function elementRect(node, geometry){
+  let rect = relative(node.getBoundingClientRect(), geometry);
+  node.querySelectorAll("*").forEach(child => {
+    if(child.hidden || !child.getClientRects().length) return;
+    const style = getComputedStyle(child);
+    if(style.position !== "absolute" || style.visibility === "hidden") return;
+    rect = union(rect, relative(child.getBoundingClientRect(), geometry));
+  });
+  return padded(rect);
+}
+
+// Join highlights that overlap or nearly touch, until every pair is far apart.
+function mergeRects(rects){
+  const out = rects.slice();
+  for(let merged = true; merged;){
+    merged = false;
+    for(let i = 0; i < out.length && !merged; i += 1){
+      for(let j = i + 1; j < out.length; j += 1){
+        if(gapBetween(out[i], out[j]) >= SPOT_MERGE_GAP) continue;
+        out[i] = union(out[i], out[j]);
+        out.splice(j, 1);
+        merged = true;
+        break;
+      }
+    }
+  }
+  return out;
+}
 
 function robotRect(number, geometry){
   // Use the current frame, not the DOM, so a robot still sliding back is boxed at its start.
@@ -375,13 +414,13 @@ function targetRects(){
     const node = step.target.startsWith("value:")
       ? document.querySelector(`.simple-value-button[data-family="${family}"][data-value="${value}"]`)
       : element(step.target);
-    if(node) rects.push(padded(relative(node.getBoundingClientRect(), geometry)));
+    if(node) rects.push(elementRect(node, geometry));
   }
   if(step.targetAlso){
     const node = element(step.targetAlso);
-    if(node) rects.push(padded(relative(node.getBoundingClientRect(), geometry)));
+    if(node) rects.push(elementRect(node, geometry));
   }
-  return rects;
+  return mergeRects(rects);
 }
 
 function drawSpots(rects, geometry){
@@ -392,7 +431,14 @@ function drawSpots(rects, geometry){
   const holes = rects.map(q => `<rect x="${q.x}" y="${q.y}" width="${q.w}" height="${q.h}" rx="6" fill="#000"/>`).join("");
   svg.innerHTML = `<defs><mask id="guided-spot-mask"><rect width="${width}" height="${height}" fill="#fff"/>${holes}</mask></defs>` +
     `<rect width="${width}" height="${height}" fill="rgba(14,26,38,.52)" mask="url(#guided-spot-mask)"/>` +
-    rects.map(q => `<rect x="${q.x - 2}" y="${q.y - 2}" width="${q.w + 4}" height="${q.h + 4}" rx="8" fill="none" stroke="#ffd257" stroke-width="3"/>`).join("");
+    rects.map(ring).map(q => `<rect x="${q.x}" y="${q.y}" width="${q.w}" height="${q.h}" rx="8" fill="none" stroke="#ffd257" stroke-width="3"/>`).join("");
+  // Each ring stays inside the layer, so no edge is cut off at the page border.
+  function ring(q){
+    const inset = 2;
+    const x = Math.max(inset, q.x - 2);
+    const y = Math.max(inset, q.y - 2);
+    return {x, y, w:Math.min(width - inset, q.x + q.w + 2) - x, h:Math.min(height - inset, q.y + q.h + 2) - y};
+  }
 }
 
 function placeGuide(){
@@ -724,5 +770,5 @@ function start(options){
   return true;
 }
 
-window.GuidedTutorial = {phase, start, validate, enabledGadgets, settings, stepsFor};
+window.GuidedTutorial = {phase, start, validate, enabledGadgets, settings, stepsFor, mergeRects};
 })();
