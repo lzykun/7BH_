@@ -273,7 +273,26 @@ for (const state of ['low', 'last', 'empty', 'solved']) assert.ok(budgetCss.incl
 assert.match(budgetCss, /width:206px;\s*height:44px;/, 'Counter is 206x44');
 assert.match(budgetCss, /content:"\/" attr\(data-limit\)/, 'Counter shows "/limit" from data-limit');
 assert.match(budgetCss, /\.run-budget\[hidden\]\{display:none;\}/, 'Hidden counter is not drawn');
-assert.equal(taskHtml.match(/<span class="run-budget-track"[^>]*>(.*?)<\/span>/)[1].match(/<i><\/i>/g).length, study.max_runs_per_trial, 'One pip per Run');
+// The Run limit is set once, in STUDY_CONFIG; trial-policy.js, the counter and every text read it from there.
+assert.equal(study.max_runs_per_trial, 5, 'STUDY_CONFIG.max_runs_per_trial is 5');
+assert.equal(require('../trial-policy.js').LIMIT, study.max_runs_per_trial, 'TrialPolicy.LIMIT comes from STUDY_CONFIG');
+assert.match(read('trial-policy.js'), /const LIMIT = \(root\.STUDY_CONFIG \|\| nodeConfig\(\)\)\?\.max_runs_per_trial;/, 'trial-policy.js has no limit of its own');
+assert.equal(taskHtml.match(/<span class="run-budget-track"[^>]*>(.*?)<\/span>/)[1], '', 'No hard-coded pips in task.html');
+assert.match(appJs, /track\.innerHTML = "<i><\/i>"\.repeat\(window\.TrialPolicy\.LIMIT\)/, 'app.js draws one pip per Run');
+assert.match(budgetCss, /grid-auto-flow:column;\s*grid-auto-columns:1fr;/, 'Pips share the track whatever the limit');
+assert.ok(!/repeat\(\d+,1fr\)/.test(budgetCss), 'No fixed pip count in run-budget.css');
+assert.match(appJs, /left === 0 \? "empty" : left === 1 \? "last" : left === 2 \? "low" : "ready"/, 'Counter states: 0 empty, 1 last, 2 low, otherwise ready');
+const consentHtml = read('routes/consent.html');
+for (const [name, html] of [['task.html', taskHtml], ['consent.html', consentHtml]]) {
+  const text = html.replace(/<(script|style|svg)[\s\S]*?<\/\1>/g, '').replace(/<[^>]+>/g, ' ');
+  assert.ok(!/\b\d+\s+Runs\b|\bRun\s+\d+\b|\b(tenth|fifth)\s+Run\b/i.test(text), `${name}: no literal Run counts`);
+}
+for (const legend of ['5. Which action uses one of your <span data-max-runs></span> Runs?',
+  '6. All robots reach their own bays on Run <span data-max-runs></span>. Does this count as a solved task?',
+  '7. Some robots are still not home after Run <span data-max-runs></span>. What happens next?']) {
+  assert.ok(taskHtml.includes(`<legend>${legend}</legend>`), `Comprehension: ${legend}`);
+}
+assert.ok(consentHtml.includes('Solving it on your <span data-max-runs-ordinal></span> Run still counts as success.'), 'Consent: ordinal from config');
 assert.match(read('guided-tutorial/guided.css'), /body > \.task-success-confetti\{position:fixed;inset:0;/, 'Tutorial confetti covers the window');
 assert.match(read('guided-tutorial/engine.js'), /host\.confetti\(document\.body, window\.innerWidth, window\.innerHeight\)/, 'Confetti spreads over the window');
 

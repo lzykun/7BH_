@@ -1,6 +1,6 @@
 /* Runs-left counter beside "Run" (routes/task.html #run-budget).
    app.js updateContinueButton sets data-state (ready, low, last, empty, solved),
-   the number, the label and the used pips; data-limit supplies the "/10". */
+   the number, the label and the pips (one per Run); data-limit supplies the "/limit". */
 .run-budget{
   --run-budget-color:#256fca;
   position:relative;
@@ -71,7 +71,8 @@
 .run-budget-track{
   grid-area:track;
   display:grid;
-  grid-template-columns:repeat(10,1fr);
+  grid-auto-flow:column;
+  grid-auto-columns:1fr;
   gap:3px;
 }
 .run-budget-track i{display:block;height:8px;background:var(--run-budget-color);}

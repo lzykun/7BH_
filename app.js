@@ -2527,7 +2527,7 @@ function updateContinueButton(){
       budget.hidden = taskMode !== "task" && !demo;
       const left = Math.max(0,window.TrialPolicy.LIMIT-(demo ? demo.used : state?.attempts || 0));
       const solved = demo ? !!demo.solved : resolved && state.outcome === "success";
-      budget.dataset.state = solved ? "solved" : left === 0 ? "empty" : left === 1 ? "last" : left <= 3 ? "low" : "ready";
+      budget.dataset.state = solved ? "solved" : left === 0 ? "empty" : left === 1 ? "last" : left === 2 ? "low" : "ready";
       $("run-budget-number").textContent = solved ? "\u2713" : String(left);
       if(solved) delete $("run-budget-number").dataset.limit;
       else $("run-budget-number").dataset.limit = String(window.TrialPolicy.LIMIT);
@@ -2544,6 +2544,9 @@ function updateContinueButton(){
         runButton.disabled = true;
       }
       $("run-budget-label").textContent = solved ? "Solved" : left === 1 ? "Run left" : "Runs left";
+      // One pip per Run, from STUDY_CONFIG.max_runs_per_trial.
+      const track = budget.querySelector(".run-budget-track");
+      if(track && track.children.length !== window.TrialPolicy.LIMIT) track.innerHTML = "<i></i>".repeat(window.TrialPolicy.LIMIT);
       budget.querySelectorAll(".run-budget-track i").forEach((pip,index)=>pip.classList.toggle("is-used", index >= left));
     }
     document.querySelectorAll(".simple-value-button,.rule-family-tab").forEach(button=>{button.disabled=taskEditorLocked();});

@@ -1,7 +1,18 @@
 /* Trial outcomes are permanent; replaying animation never spends another Run. */
 (function(root){
   "use strict";
-  const LIMIT = 10;
+  // The Run limit lives in STUDY_CONFIG.max_runs_per_trial only (study-config.js).
+  const LIMIT = (root.STUDY_CONFIG || nodeConfig())?.max_runs_per_trial;
+  if(!Number.isInteger(LIMIT) || LIMIT < 1) throw new Error("STUDY_CONFIG.max_runs_per_trial must be a positive integer");
+  // Under Node (tests), read study-config.js next to this file.
+  function nodeConfig(){
+    if(typeof module === "undefined" || !module.exports) return null;
+    const sandbox = {window:{}};
+    require("node:vm").runInNewContext(require("node:fs").readFileSync(require("node:path").join(__dirname, "study-config.js"), "utf8"), sandbox);
+    return sandbox.window.STUDY_CONFIG;
+  }
+  const ORDINALS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "eleventh", "twelfth"];
+  const ordinal = n => ORDINALS[n-1] || `${n}th`;
   function empty(){ return {attempts:0, outcome:null, lastOk:null}; }
   function apply(state, ok){
     if(state.outcome || state.attempts >= LIMIT) throw new Error("Trial already resolved");
@@ -45,6 +56,9 @@
   if(typeof module !== "undefined" && module.exports) module.exports = api;
   else {
     root.TrialPolicy = Object.freeze(api);
+    // Participant text names the limit through placeholders, never a literal.
+    document.querySelectorAll("[data-max-runs]").forEach(node => { node.textContent = String(LIMIT); });
+    document.querySelectorAll("[data-max-runs-ordinal]").forEach(node => { node.textContent = ordinal(LIMIT); });
     const terms = document.querySelector('[data-payment-terms]');
     if(terms){
       const payment = root.STUDY_CONFIG.payment;

@@ -46,9 +46,9 @@
         <div class="controls scene-run-controls">
           <button class="btn primary" id="run">Run</button>
           <div id="run-budget" class="run-budget" role="status" aria-live="polite" aria-atomic="true">
-            <strong class="run-budget-number" id="run-budget-number">10</strong>
+            <strong class="run-budget-number" id="run-budget-number"></strong>
             <span class="run-budget-label" id="run-budget-label">Runs left</span>
-            <span class="run-budget-track" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+            <span class="run-budget-track" aria-hidden="true"></span>
             <span class="run-budget-tag" id="run-budget-tag" hidden></span>
           </div>
           <div class="step-nav" aria-label="Animation step controls">
@@ -148,19 +148,19 @@
         <label class="comprehension-option"><input type="radio" name="check4" value="d"><span>It stays selected and can still be edited.</span></label>
       </fieldset>
       <fieldset class="comprehension-question">
-        <legend>5. Which action uses one of your 10 Runs?</legend>
+        <legend>5. Which action uses one of your <span data-max-runs></span> Runs?</legend>
         <label class="comprehension-option"><input type="radio" name="check5" value="a"><span>Replaying a previous Run with the arrow buttons.</span></label>
         <label class="comprehension-option"><input type="radio" name="check5" value="b"><span>Pressing Run, even without changing your selections. Replaying does not use a Run.</span></label>
         <label class="comprehension-option"><input type="radio" name="check5" value="c"><span>Changing your selections without pressing Run.</span></label>
       </fieldset>
       <fieldset class="comprehension-question">
-        <legend>6. All robots reach their own bays on Run 10. Does this count as a solved task?</legend>
-        <label class="comprehension-option"><input type="radio" name="check6" value="a"><span>Yes, success on Run 10 still counts.</span></label>
-        <label class="comprehension-option"><input type="radio" name="check6" value="b"><span>No, only success before Run 10 counts.</span></label>
+        <legend>6. All robots reach their own bays on Run <span data-max-runs></span>. Does this count as a solved task?</legend>
+        <label class="comprehension-option"><input type="radio" name="check6" value="a"><span>Yes, success on Run <span data-max-runs></span> still counts.</span></label>
+        <label class="comprehension-option"><input type="radio" name="check6" value="b"><span>No, only success before Run <span data-max-runs></span> counts.</span></label>
         <label class="comprehension-option"><input type="radio" name="check6" value="c"><span>Only if the same selections work a second time.</span></label>
       </fieldset>
       <fieldset class="comprehension-question">
-        <legend>7. Some robots are still not home after Run 10. What happens next?</legend>
+        <legend>7. Some robots are still not home after Run <span data-max-runs></span>. What happens next?</legend>
         <label class="comprehension-option"><input type="radio" name="check7" value="a"><span>You can keep running the same task until every robot is home.</span></label>
         <label class="comprehension-option"><input type="radio" name="check7" value="b"><span>You move to the next task with all selections cleared.</span></label>
         <label class="comprehension-option"><input type="radio" name="check7" value="c"><span>You move to the next task with your last selections kept.</span></label>
